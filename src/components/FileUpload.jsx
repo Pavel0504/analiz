@@ -207,9 +207,6 @@ const FileUpload = ({ onDataLoaded, isOpen, onClose }) => {
             <p className="text-xs text-gray-500 mt-1">
               <strong>Примечание:</strong> Строка 1 (заголовки) пропускается при обработке
             </p>
-            <p className="text-xs text-blue-600 mt-2">
-              <strong>API:</strong> {API_BASE_URL}
-            </p>
           </div>
         </div>
       </div>
