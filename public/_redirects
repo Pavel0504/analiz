@@ -1,0 +1,6 @@
+# Netlify redirects file
+# Handle client-side routing
+/*    /index.html   200
+
+# API proxy rules (optional - if you want to proxy through Netlify)
+# /api/*  https://bbda-91-184-250-87.ngrok-free.app/api/:splat  200
