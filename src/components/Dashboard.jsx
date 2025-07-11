@@ -533,11 +533,64 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
     setShowExpenseForm(true);
   }, []);
 
+  // Get date range from data
+  const getDateRangeFromData = useCallback(() => {
+    if (data.length === 0) {
+      return {
+        startDate: '2024-01-01',
+        endDate: '2025-12-31'
+      };
+    }
+
+    const validDates = data
+      .map(item => parseDate(item.applicationDate))
+      .filter(date => date !== null)
+      .sort((a, b) => a - b);
+
+    if (validDates.length === 0) {
+      return {
+        startDate: '2024-01-01',
+        endDate: '2025-12-31'
+      };
+    }
+
+    const earliestDate = validDates[0];
+    const latestDate = validDates[validDates.length - 1];
+
+    return {
+      startDate: earliestDate.toISOString().split('T')[0],
+      endDate: latestDate.toISOString().split('T')[0]
+    };
+  }, [data]);
+
+  // Initialize date range when data changes
+  useEffect(() => {
+    if (data.length > 0) {
+      const autoDateRange = getDateRangeFromData();
+      updateComparison(currentComparisonIndex, { 
+        dateRange: autoDateRange
+      });
+    }
+  }, [data, getDateRangeFromData, currentComparisonIndex]);
+
+    // Apply date filter function
+  const applyDateFilter = useCallback(() => {
+    // Force re-calculation of filtered data
+    console.log('Применение фильтра по датам:', dateRange);
+    
+    // This will trigger re-calculation of filteredData through useMemo dependency
+    updateComparison(currentComparisonIndex, { 
+      dateRange: { ...dateRange }
+    });
+  }, [dateRange, currentComparisonIndex]);
+
   // Улучшенная функция парсинга даты
-  const parseDate = (dateStr) => {
+ const parseDate = (dateStr) => {
     if (!dateStr || dateStr === 'Не указано' || dateStr === '') return null;
     
     try {
+      console.log('Parsing date:', dateStr);
+      
       // Handle DD.MM.YYYY format
       if (dateStr.includes('.')) {
         const parts = dateStr.split('.');
@@ -548,7 +601,9 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
           
           // Validate date parts
           if (day >= 1 && day <= 31 && month >= 1 && month <= 12 && year >= 1900) {
-            return new Date(year, month - 1, day);
+            const date = new Date(year, month - 1, day);
+            console.log('Parsed DD.MM.YYYY:', date);
+            return date;
           }
         }
       }
@@ -557,6 +612,7 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
       if (dateStr.includes('-')) {
         const date = new Date(dateStr);
         if (!isNaN(date.getTime())) {
+          console.log('Parsed YYYY-MM-DD:', date);
           return date;
         }
       }
@@ -565,24 +621,32 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
       const months = {
         'января': 0, 'февраля': 1, 'марта': 2, 'апреля': 3,
         'мая': 4, 'июня': 5, 'июля': 6, 'августа': 7,
-        'сентября': 8, 'октября': 9, 'ноября': 10, 'декабря': 11
+        'сентября': 8, 'октября': 9, 'ноября': 10, 'декабря': 11,
+        // Add lowercase versions for better matching
+        'Января': 0, 'Февраля': 1, 'Марта': 2, 'Апреля': 3,
+        'Мая': 4, 'Июня': 5, 'Июля': 6, 'Августа': 7,
+        'Сентября': 8, 'Октября': 9, 'Ноября': 10, 'Декабря': 11
       };
       
-      const russianMatch = dateStr.match(/(\d+)\s+(\w+)\s+(\d{4})/);
+      // More flexible regex for Russian dates
+      const russianMatch = dateStr.match(/(\d+)\s+([а-яА-Я]+)\s+(\d{4})/);
       if (russianMatch) {
         const day = parseInt(russianMatch[1], 10);
-        const monthName = russianMatch[2].toLowerCase();
+        const monthName = russianMatch[2]; // Keep original case
         const year = parseInt(russianMatch[3], 10);
         const month = months[monthName];
         
         if (month !== undefined && day >= 1 && day <= 31 && year >= 1900) {
-          return new Date(year, month, day);
+          const date = new Date(year, month, day);
+          console.log('Parsed Russian date:', dateStr, '->', date);
+          return date;
         }
       }
       
       // Try to parse as a regular date
       const fallbackDate = new Date(dateStr);
       if (!isNaN(fallbackDate.getTime())) {
+        console.log('Parsed fallback:', fallbackDate);
         return fallbackDate;
       }
       
@@ -604,25 +668,32 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
   }, [data]);
 
   const getFilteredData = useCallback((comparisonFilters, comparisonDateRange) => {
+    console.log('Filtering data with date range:', comparisonDateRange);
+    console.log('Total data items:', data.length);
+    
     return data.filter(item => {
-      // Фильтр по дате заявки
       const itemDate = parseDate(item.applicationDate);
+      
+      // Date filtering
       if (itemDate) {
         const startDate = new Date(comparisonDateRange.startDate);
         const endDate = new Date(comparisonDateRange.endDate);
-        endDate.setHours(23, 59, 59, 999); // Включаем весь день
+        endDate.setHours(23, 59, 59, 999);
         
         if (itemDate < startDate || itemDate > endDate) {
+          console.log('Filtered out by date:', item.applicationDate, itemDate, 'not in range', startDate, 'to', endDate);
           return false;
         }
+      } else {
+        // If date cannot be parsed, exclude from results
+        console.log('Filtered out - invalid date:', item.applicationDate);
+        return false;
       }
       
-      // Фильтры по полям
       const sourceMatch = comparisonFilters.sources.length === 0 || comparisonFilters.sources.includes(item.source);
       const operatorMatch = comparisonFilters.operators.length === 0 || comparisonFilters.operators.includes(item.operator);
       const statusMatch = comparisonFilters.statuses.length === 0 || comparisonFilters.statuses.includes(item.status);
-      const whoMeasuredMatch = comparisonFilters.whoMeasured.length === 0 || 
-        comparisonFilters.whoMeasured.includes(item.whoMeasured || 'Не указано');
+      const whoMeasuredMatch = comparisonFilters.whoMeasured.length === 0 || comparisonFilters.whoMeasured.includes(item.whoMeasured);
       
       return sourceMatch && operatorMatch && statusMatch && whoMeasuredMatch;
     });
@@ -1407,47 +1478,70 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
                   <input
                     type="date"
                     value={dateRange.startDate}
-                    onChange={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      updateComparison(currentComparisonIndex, { 
-                        dateRange: { ...dateRange, startDate: e.target.value }
-                      });
-                    }}
-                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <label className="text-sm font-medium text-gray-600 dark:text-gray-400">По:</label>
-                  <input
-                    type="date"
-                    value={dateRange.endDate}
-                    onChange={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      updateComparison(currentComparisonIndex, { 
-                        dateRange: { ...dateRange, endDate: e.target.value }
-                      });
-                    }}
-                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                  />
-                </div>
+                     onChange={(e) => {
+                       e.preventDefault();
+                       e.stopPropagation();
+                       updateComparison(currentComparisonIndex, { 
+                         dateRange: { ...dateRange, startDate: e.target.value }
+                       });
+                     }}
+                     className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                   />
+                 </div>
+                 <div className="flex items-center gap-2">
+                   <label className="text-sm font-medium text-gray-600 dark:text-gray-400">По:</label>
+                   <input
+                     type="date"
+                     value={dateRange.endDate}
+                     onChange={(e) => {
+                       e.preventDefault();
+                       e.stopPropagation();
+                       updateComparison(currentComparisonIndex, { 
+                         dateRange: { ...dateRange, endDate: e.target.value }
+                       });
+                     }}
+                     className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                   />
+                 </div>
                 <button
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    updateComparison(currentComparisonIndex, {
-                      dateRange: {
-                        startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
-                        endDate: new Date().toISOString().split('T')[0]
-                      }
+                    applyDateFilter();
+                  }}
+                  className="px-4 py-2 bg-green-500 text-white rounded-lg text-sm hover:bg-green-600 transition-all duration-200 hover:scale-105"
+                >
+                  Применить
+                </button>
+                 <button
+                   onClick={(e) => {
+                     e.preventDefault();
+                     e.stopPropagation();
+                     updateComparison(currentComparisonIndex, {
+                       dateRange: {
+                         startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
+                         endDate: new Date().toISOString().split('T')[0]
+                       }
+                     });
+                   }}
+                   className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 transition-all duration-200 hover:scale-105"
+                 >
+                   Текущий месяц
+                 </button>
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const autoDateRange = getDateRangeFromData();
+                    updateComparison(currentComparisonIndex, { 
+                      dateRange: autoDateRange
                     });
                   }}
-                  className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 transition-all duration-200 hover:scale-105"
+                  className="px-4 py-2 bg-purple-500 text-white rounded-lg text-sm hover:bg-purple-600 transition-all duration-200 hover:scale-105"
                 >
-                  Текущий месяц
+                  Весь период
                 </button>
-              </div>
+               </div>
             </div>
 
             {/* Budget Overview */}
