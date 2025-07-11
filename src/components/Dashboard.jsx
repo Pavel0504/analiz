@@ -535,53 +535,63 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
 
   // Улучшенная функция парсинга даты
   const parseDate = (dateStr) => {
-    if (!dateStr || dateStr === 'Не указано') return null;
+    if (!dateStr || dateStr === 'Не указано' || dateStr === '') return null;
     
-    // Пробуем разные форматы даты
-    let parsedDate = null;
-    
-    // Формат DD.MM.YYYY
-    if (dateStr.includes('.')) {
-      const parts = dateStr.split('.');
-      if (parts.length === 3) {
-        const day = parseInt(parts[0], 10);
-        const month = parseInt(parts[1], 10);
-        const year = parseInt(parts[2], 10);
-        
-        if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
-          parsedDate = new Date(year, month - 1, day);
+    try {
+      // Handle DD.MM.YYYY format
+      if (dateStr.includes('.')) {
+        const parts = dateStr.split('.');
+        if (parts.length === 3) {
+          const day = parseInt(parts[0], 10);
+          const month = parseInt(parts[1], 10);
+          const year = parseInt(parts[2], 10);
+          
+          // Validate date parts
+          if (day >= 1 && day <= 31 && month >= 1 && month <= 12 && year >= 1900) {
+            return new Date(year, month - 1, day);
+          }
         }
       }
-    }
-    // Формат YYYY-MM-DD
-    else if (dateStr.includes('-')) {
-      parsedDate = new Date(dateStr);
-    }
-    // Формат "4 Декабря 2024 г. 12:45"
-    else if (dateStr.includes(' ')) {
-      const monthNames = {
-        'января': 0, 'февраля': 1, 'марта': 2, 'апреля': 3, 'мая': 4, 'июня': 5,
-        'июля': 6, 'августа': 7, 'сентября': 8, 'октября': 9, 'ноября': 10, 'декабря': 11
+      
+      // Handle YYYY-MM-DD format
+      if (dateStr.includes('-')) {
+        const date = new Date(dateStr);
+        if (!isNaN(date.getTime())) {
+          return date;
+        }
+      }
+      
+      // Handle Russian date format like "4 Декабря 2024 г. 12:45"
+      const months = {
+        'января': 0, 'февраля': 1, 'марта': 2, 'апреля': 3,
+        'мая': 4, 'июня': 5, 'июля': 6, 'августа': 7,
+        'сентября': 8, 'октября': 9, 'ноября': 10, 'декабря': 11
       };
       
-      const parts = dateStr.toLowerCase().split(' ');
-      if (parts.length >= 3) {
-        const day = parseInt(parts[0], 10);
-        const month = monthNames[parts[1]];
-        const year = parseInt(parts[2].replace('г.', ''), 10);
+      const russianMatch = dateStr.match(/(\d+)\s+(\w+)\s+(\d{4})/);
+      if (russianMatch) {
+        const day = parseInt(russianMatch[1], 10);
+        const monthName = russianMatch[2].toLowerCase();
+        const year = parseInt(russianMatch[3], 10);
+        const month = months[monthName];
         
-        if (!isNaN(day) && month !== undefined && !isNaN(year)) {
-          parsedDate = new Date(year, month, day);
+        if (month !== undefined && day >= 1 && day <= 31 && year >= 1900) {
+          return new Date(year, month, day);
         }
       }
+      
+      // Try to parse as a regular date
+      const fallbackDate = new Date(dateStr);
+      if (!isNaN(fallbackDate.getTime())) {
+        return fallbackDate;
+      }
+      
+      console.warn('Unable to parse date:', dateStr);
+      return null;
+    } catch (error) {
+      console.error('Date parsing error for:', dateStr, error);
+      return null;
     }
-    
-    // Проверяем валидность даты
-    if (parsedDate && !isNaN(parsedDate.getTime())) {
-      return parsedDate;
-    }
-    
-    return null;
   };
 
   const uniqueValues = useMemo(() => {
