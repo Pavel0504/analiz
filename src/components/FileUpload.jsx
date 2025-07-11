@@ -198,6 +198,7 @@ const FileUpload = ({ onDataLoaded, isOpen, onClose }) => {
                 <div>• <strong>Колонка I:</strong> Воронка продаж</div>
                 <div>• <strong>Колонка S:</strong> Время обработки (мин)</div>
                 <div>• <strong>Колонка T:</strong> Отметка об обработке</div>
+                <div>• <strong>Колонка U:</strong> Кто замерял</div>
                 <div>• <strong>Колонка Z:</strong> Оператор</div>
               </div>
             </div>

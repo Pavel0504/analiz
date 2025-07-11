@@ -22,7 +22,7 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
       sources: [],
       operators: [],
       statuses: [],
-      salesFunnels: []
+      whoMeasured: []
     },
     dateRange: {
       startDate: '2024-01-01',
@@ -67,7 +67,7 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
   const [tempLayoutOrder, setTempLayoutOrder] = useState(layoutOrder);
 
   // Filter and metrics ordering states
-  const defaultFilterOrder = ['sources', 'operators', 'statuses', 'salesFunnels'];
+  const defaultFilterOrder = ['sources', 'operators', 'statuses', 'whoMeasured'];
   const defaultMetricsOrder = ['total', 'measurements', 'contracts', 'inProgress', 'refusals', 'conversionRate', 'costPerLead', 'roi'];
   
   const [filterOrder, setFilterOrder] = useState(() => {
@@ -183,7 +183,7 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
     sources: [],
     operators: [],
     statuses: [],
-    salesFunnels: []
+    whoMeasured: []
   };
   const dateRange = currentComparison?.dateRange || {
     startDate: '2024-01-01',
@@ -323,7 +323,7 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
         sources: [],
         operators: [],
         statuses: [],
-        salesFunnels: []
+        whoMeasured: []
       },
       dateRange: {
         startDate: '2024-01-01',
@@ -533,10 +533,55 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
     setShowExpenseForm(true);
   }, []);
 
+  // Улучшенная функция парсинга даты
   const parseDate = (dateStr) => {
     if (!dateStr || dateStr === 'Не указано') return null;
-    const [day, month, year] = dateStr.split('.');
-    return new Date(year, month - 1, day);
+    
+    // Пробуем разные форматы даты
+    let parsedDate = null;
+    
+    // Формат DD.MM.YYYY
+    if (dateStr.includes('.')) {
+      const parts = dateStr.split('.');
+      if (parts.length === 3) {
+        const day = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10);
+        const year = parseInt(parts[2], 10);
+        
+        if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
+          parsedDate = new Date(year, month - 1, day);
+        }
+      }
+    }
+    // Формат YYYY-MM-DD
+    else if (dateStr.includes('-')) {
+      parsedDate = new Date(dateStr);
+    }
+    // Формат "4 Декабря 2024 г. 12:45"
+    else if (dateStr.includes(' ')) {
+      const monthNames = {
+        'января': 0, 'февраля': 1, 'марта': 2, 'апреля': 3, 'мая': 4, 'июня': 5,
+        'июля': 6, 'августа': 7, 'сентября': 8, 'октября': 9, 'ноября': 10, 'декабря': 11
+      };
+      
+      const parts = dateStr.toLowerCase().split(' ');
+      if (parts.length >= 3) {
+        const day = parseInt(parts[0], 10);
+        const month = monthNames[parts[1]];
+        const year = parseInt(parts[2].replace('г.', ''), 10);
+        
+        if (!isNaN(day) && month !== undefined && !isNaN(year)) {
+          parsedDate = new Date(year, month, day);
+        }
+      }
+    }
+    
+    // Проверяем валидность даты
+    if (parsedDate && !isNaN(parsedDate.getTime())) {
+      return parsedDate;
+    }
+    
+    return null;
   };
 
   const uniqueValues = useMemo(() => {
@@ -544,25 +589,32 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
       sources: [...new Set(data.map(item => item.source))],
       operators: [...new Set(data.map(item => item.operator))],
       statuses: [...new Set(data.map(item => item.status))],
-      salesFunnels: [...new Set(data.flatMap(item => item.salesFunnel.split(', ')))]
+      whoMeasured: [...new Set(data.map(item => item.whoMeasured || 'Не указано').filter(Boolean))]
     };
   }, [data]);
 
   const getFilteredData = useCallback((comparisonFilters, comparisonDateRange) => {
     return data.filter(item => {
+      // Фильтр по дате заявки
       const itemDate = parseDate(item.applicationDate);
-      const startDate = new Date(comparisonDateRange.startDate);
-      const endDate = new Date(comparisonDateRange.endDate);
+      if (itemDate) {
+        const startDate = new Date(comparisonDateRange.startDate);
+        const endDate = new Date(comparisonDateRange.endDate);
+        endDate.setHours(23, 59, 59, 999); // Включаем весь день
+        
+        if (itemDate < startDate || itemDate > endDate) {
+          return false;
+        }
+      }
       
-      if (itemDate && (itemDate < startDate || itemDate > endDate)) return false;
-      
+      // Фильтры по полям
       const sourceMatch = comparisonFilters.sources.length === 0 || comparisonFilters.sources.includes(item.source);
       const operatorMatch = comparisonFilters.operators.length === 0 || comparisonFilters.operators.includes(item.operator);
       const statusMatch = comparisonFilters.statuses.length === 0 || comparisonFilters.statuses.includes(item.status);
-      const funnelMatch = comparisonFilters.salesFunnels.length === 0 ||
-        comparisonFilters.salesFunnels.some(funnel => item.salesFunnel.includes(funnel));
+      const whoMeasuredMatch = comparisonFilters.whoMeasured.length === 0 || 
+        comparisonFilters.whoMeasured.includes(item.whoMeasured || 'Не указано');
       
-      return sourceMatch && operatorMatch && statusMatch && funnelMatch;
+      return sourceMatch && operatorMatch && statusMatch && whoMeasuredMatch;
     });
   }, [data]);
 
@@ -600,7 +652,7 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
         sources: [],
         operators: [],
         statuses: [],
-        salesFunnels: []
+        whoMeasured: []
       }
     });
   }, [currentComparisonIndex]);
@@ -722,12 +774,20 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
       )
     ).length;
     const contracts = comparisonData.filter(item => item.status === 'Договор').length;
-    const inProgress = comparisonData.filter(item => 
-      item.status && (
-        item.status.includes('Созвон до замера') ||
-        item.status.includes('дожать был замер')
-      )
+    
+    // Детализация "В работе"
+    const callBeforeMeasurement = comparisonData.filter(item => 
+      item.status && item.status.includes('Созвон до замера')
     ).length;
+    const callBeforeMeasurementImportant = comparisonData.filter(item => 
+      item.status && item.status.includes('Созвон до замера важно')
+    ).length;
+    const pushAfterMeasurement = comparisonData.filter(item => 
+      item.status && item.status.includes('дожать был замер')
+    ).length;
+    
+    const inProgress = callBeforeMeasurement + callBeforeMeasurementImportant + pushAfterMeasurement;
+    
     const refusals = comparisonData.filter(item => item.status === 'Отказ').length;
     const conversionRate = total > 0 ? (contracts / total * 100).toFixed(1) : 0;
     const costPerLead = total > 0 ? (comparisonBudget / total).toFixed(0) : 0;
@@ -750,7 +810,11 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
       refusals,
       conversionRate,
       costPerLead,
-      roi
+      roi,
+      // Детализация "В работе"
+      callBeforeMeasurement,
+      callBeforeMeasurementImportant,
+      pushAfterMeasurement
     };
   }, []);
 
@@ -855,14 +919,14 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
       sources: [],
       operators: [],
       statuses: [],
-      salesFunnels: []
+      whoMeasured: []
     };
     
     const filterNames = {
       sources: 'Источники',
       operators: 'Операторы', 
       statuses: 'Статусы',
-      salesFunnels: 'Воронка продаж'
+      whoMeasured: 'Кто замерял'
     };
 
     const handleComparisonFilterChange = (filterType, value, checked) => {
@@ -947,7 +1011,7 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
       sources: [],
       operators: [],
       statuses: [],
-      salesFunnels: []
+      whoMeasured: []
     }, comparison?.dateRange || {
       startDate: '2024-01-01',
       endDate: '2025-12-31'
@@ -993,7 +1057,12 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
         label: 'В работе',
         value: comparisonMetrics.inProgress,
         gradient: 'from-yellow-500 to-yellow-600',
-        textColor: 'text-yellow-100'
+        textColor: 'text-yellow-100',
+        expandedInfo: {
+          'Созвон до замера': comparisonMetrics.callBeforeMeasurement,
+          'Созвон до замера важно': comparisonMetrics.callBeforeMeasurementImportant,
+          'Дожать был замер': comparisonMetrics.pushAfterMeasurement
+        }
       },
       refusals: {
         label: 'Отказы',
@@ -1022,7 +1091,7 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
     };
 
     const config = metricConfigs[metricId];
-    const canExpand = ['total', 'measurements', 'contracts'].includes(metricId);
+    const canExpand = ['total', 'measurements', 'contracts', 'inProgress'].includes(metricId);
 
     return (
       <div className="relative">
@@ -1090,7 +1159,7 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
                     {key === 'costPerLead' ? 'Цена за лид:' : 
                      key === 'totalBudget' ? 'Общий расход:' : 
                      key === 'conversion' ? 'Конверсия:' : 
-                     key.replace(/([A-Z])/g, ' $1').trim()}
+                     key}
                   </span>
                   <span className="font-medium text-gray-800 dark:text-gray-200">{value}</span>
                 </div>

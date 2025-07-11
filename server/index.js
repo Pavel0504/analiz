@@ -201,6 +201,10 @@ const parseUploadedData = (filePath) => {
       // Column T - Отметка об обработке (processed) - index 19
       row.processed = getCellValue(worksheet, rowNum, 19) || '';
       
+      // Column U - Кто замерял / Воронка продаж (whoMeasured) - index 20
+      const whoMeasuredValue = getCellValue(worksheet, rowNum, 20);
+      row.whoMeasured = whoMeasuredValue || 'Не указано';
+      
       // Column Z - Оператор (operator) - index 25
       const operatorValue = getCellValue(worksheet, rowNum, 25);
       row.operator = operatorValue || 'Не указано';
@@ -217,7 +221,8 @@ const parseUploadedData = (filePath) => {
           source: row.source,
           status: row.status,
           operator: row.operator,
-          voronka: row.voronka
+          voronka: row.voronka,
+          whoMeasured: row.whoMeasured
         });
         data.push(row);
       }
