@@ -858,13 +858,13 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
     
     // Детализация "В работе"
     const callBeforeMeasurement = comparisonData.filter(item => 
-      item.status && item.status.includes('Созвон до замера')
+      item.status && item.status.includes('❓Созвон до замера')
     ).length;
     const callBeforeMeasurementImportant = comparisonData.filter(item => 
-      item.status && item.status.includes('Созвон до замера важно')
+      item.status && item.status.includes('👍Созвон до замера ВАЖНО')
     ).length;
     const pushAfterMeasurement = comparisonData.filter(item => 
-      item.status && item.status.includes('дожать был замер')
+      item.status && item.status.includes('Дожать (был замер)')
     ).length;
     
     const inProgress = callBeforeMeasurement + callBeforeMeasurementImportant + pushAfterMeasurement;
