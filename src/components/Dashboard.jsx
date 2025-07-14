@@ -585,78 +585,59 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
   }, [dateRange, currentComparisonIndex]);
 
   // Улучшенная функция парсинга даты
- const parseDate = (dateStr) => {
-    if (!dateStr || dateStr === 'Не указано' || dateStr === '') return null;
-    
-    try {
-      console.log('Parsing date:', dateStr);
-      
-      // Handle DD.MM.YYYY format
-      if (dateStr.includes('.')) {
-        const parts = dateStr.split('.');
-        if (parts.length === 3) {
-          const day = parseInt(parts[0], 10);
-          const month = parseInt(parts[1], 10);
-          const year = parseInt(parts[2], 10);
-          
-          // Validate date parts
-          if (day >= 1 && day <= 31 && month >= 1 && month <= 12 && year >= 1900) {
-            const date = new Date(year, month - 1, day);
-            console.log('Parsed DD.MM.YYYY:', date);
-            return date;
-          }
-        }
+const parseDate = (dateStr) => {
+  if (!dateStr || dateStr === 'Не указано' || dateStr.trim() === '') {
+    return null;
+  }
+
+  try {
+    // Маппинг русских месяцев в индексы для Date
+    const months = {
+      'января': 0,   'февраля': 1, 'марта': 2,   'апреля': 3,
+      'мая': 4,      'июня': 5,     'июля': 6,     'августа': 7,
+      'сентября': 8, 'октября': 9,  'ноября': 10,  'декабря': 11
+    };
+
+    // 1) Русский формат "5 Июня 2025 г. ..." — берём только день, месяц, год
+    const rus = dateStr.match(/(\d{1,2})\s+([А-Яа-яёЁ]+)\s+(\d{4})/);
+    if (rus) {
+      const [, dayStr, monthName, yearStr] = rus;
+      const day   = Number(dayStr);
+      const month = months[monthName.toLowerCase()];
+      const year  = Number(yearStr);
+      if (month != null) {
+        const d = new Date(year, month, day);
+        // Обнуляем время — оставляем полночь
+        d.setHours(0, 0, 0, 0);
+        return d;
       }
-      
-      // Handle YYYY-MM-DD format
-      if (dateStr.includes('-')) {
-        const date = new Date(dateStr);
-        if (!isNaN(date.getTime())) {
-          console.log('Parsed YYYY-MM-DD:', date);
-          return date;
-        }
-      }
-      
-      // Handle Russian date format like "4 Декабря 2024 г. 12:45"
-      const months = {
-        'января': 0, 'февраля': 1, 'марта': 2, 'апреля': 3,
-        'мая': 4, 'июня': 5, 'июля': 6, 'августа': 7,
-        'сентября': 8, 'октября': 9, 'ноября': 10, 'декабря': 11,
-        // Add lowercase versions for better matching
-        'Января': 0, 'Февраля': 1, 'Марта': 2, 'Апреля': 3,
-        'Мая': 4, 'Июня': 5, 'Июля': 6, 'Августа': 7,
-        'Сентября': 8, 'Октября': 9, 'Ноября': 10, 'Декабря': 11
-      };
-      
-      // More flexible regex for Russian dates
-      const russianMatch = dateStr.match(/(\d+)\s+([а-яА-Я]+)\s+(\d{4})/);
-      if (russianMatch) {
-        const day = parseInt(russianMatch[1], 10);
-        const monthName = russianMatch[2]; // Keep original case
-        const year = parseInt(russianMatch[3], 10);
-        const month = months[monthName];
-        
-        if (month !== undefined && day >= 1 && day <= 31 && year >= 1900) {
-          const date = new Date(year, month, day);
-          console.log('Parsed Russian date:', dateStr, '->', date);
-          return date;
-        }
-      }
-      
-      // Try to parse as a regular date
-      const fallbackDate = new Date(dateStr);
-      if (!isNaN(fallbackDate.getTime())) {
-        console.log('Parsed fallback:', fallbackDate);
-        return fallbackDate;
-      }
-      
-      console.warn('Unable to parse date:', dateStr);
-      return null;
-    } catch (error) {
-      console.error('Date parsing error for:', dateStr, error);
-      return null;
     }
-  };
+
+    // 2) Формат "DD.MM.YYYY"
+    const dot = dateStr.match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/);
+    if (dot) {
+      const [, dStr, mStr, yStr] = dot;
+      const d = new Date(Number(yStr), Number(mStr) - 1, Number(dStr));
+      d.setHours(0, 0, 0, 0);
+      return d;
+    }
+
+    // 3) ISO-формат "YYYY-MM-DD" или "YYYY/MM/DD"
+    const iso = dateStr.match(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+    if (iso) {
+      const [, yStr, mStr, dStr] = iso;
+      const d = new Date(Number(yStr), Number(mStr) - 1, Number(dStr));
+      d.setHours(0, 0, 0, 0);
+      return d;
+    }
+
+    // Если ни один формат не подошёл — возвращаем null
+    return null;
+  } catch (e) {
+    console.error('Date parsing error:', dateStr, e);
+    return null;
+  }
+};
 
   const uniqueValues = useMemo(() => {
     return {
