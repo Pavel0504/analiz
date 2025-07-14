@@ -538,35 +538,32 @@ const getDateRangeFromData = useCallback(() => {
   if (data.length === 0) {
     return {
       startDate: '2024-01-01',
-      endDate:   '2025-12-31'
+      // тут возвращаем сегодня
+      endDate:   new Date().toISOString().split('T')[0]
     };
   }
 
+  // Вычисляем самую раннюю дату, как раньше
   const validDates = data
     .map(item => parseDate(item.applicationDate))
-    .filter(d => d !== null)
+    .filter(d => d)
     .sort((a, b) => a - b);
 
-  if (validDates.length === 0) {
+  if (!validDates.length) {
     return {
       startDate: '2024-01-01',
-      endDate:   '2025-12-31'
+      endDate:   new Date().toISOString().split('T')[0]
     };
   }
 
-  // самая ранняя и самая поздняя даты в данных (полночь)
   const earliestDate = validDates[0];
-  const latestDate   = validDates[validDates.length - 1];
-
-  // создаём новую дату — полночь следующего дня
-  const nextDay = new Date(latestDate);
-  nextDay.setDate(nextDay.getDate() + 1);
-  nextDay.setHours(0, 0, 0, 0);
+  // Форматируем сегодняшнюю дату:
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
   return {
-    // toISOString() даст "2025-06-11T00:00:00.000Z", split('T')[0] → "2025-06-11"
     startDate: earliestDate.toISOString().split('T')[0],
-    endDate:   nextDay.toISOString().split('T')[0]
+    endDate:   today.toISOString().split('T')[0]
   };
 }, [data]);
 
