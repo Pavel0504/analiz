@@ -544,7 +544,7 @@ const getDateRangeFromData = useCallback(() => {
 
   const validDates = data
     .map(item => parseDate(item.applicationDate))
-    .filter(date => date !== null)
+    .filter(d => d !== null)
     .sort((a, b) => a - b);
 
   if (validDates.length === 0) {
@@ -554,20 +554,22 @@ const getDateRangeFromData = useCallback(() => {
     };
   }
 
-  // Самая ранняя и самая поздняя даты (полночь этих дней)
+  // самая ранняя и самая поздняя даты в данных (полночь)
   const earliestDate = validDates[0];
   const latestDate   = validDates[validDates.length - 1];
 
-  // Создаём новый объект — "следующий день" после latestDate
+  // создаём новую дату — полночь следующего дня
   const nextDay = new Date(latestDate);
   nextDay.setDate(nextDay.getDate() + 1);
+  nextDay.setHours(0, 0, 0, 0);
 
   return {
-    // yyyy-MM-dd
+    // toISOString() даст "2025-06-11T00:00:00.000Z", split('T')[0] → "2025-06-11"
     startDate: earliestDate.toISOString().split('T')[0],
     endDate:   nextDay.toISOString().split('T')[0]
   };
 }, [data]);
+
 
   // Initialize date range when data changes
   useEffect(() => {
@@ -658,32 +660,38 @@ const parseDate = (dateStr) => {
     console.log('Filtering data with date range:', comparisonDateRange);
     console.log('Total data items:', data.length);
     
-    return data.filter(item => {
-      const itemDate = parseDate(item.applicationDate);
-      
-      // Date filtering
-      if (itemDate) {
-        const startDate = new Date(comparisonDateRange.startDate);
-        const endDate = new Date(comparisonDateRange.endDate);
-        endDate.setHours(23, 59, 59, 999);
-        
-        if (itemDate < startDate || itemDate > endDate) {
-          console.log('Filtered out by date:', item.applicationDate, itemDate, 'not in range', startDate, 'to', endDate);
-          return false;
-        }
-      } else {
-        // If date cannot be parsed, exclude from results
-        console.log('Filtered out - invalid date:', item.applicationDate);
-        return false;
-      }
-      
-      const sourceMatch = comparisonFilters.sources.length === 0 || comparisonFilters.sources.includes(item.source);
-      const operatorMatch = comparisonFilters.operators.length === 0 || comparisonFilters.operators.includes(item.operator);
-      const statusMatch = comparisonFilters.statuses.length === 0 || comparisonFilters.statuses.includes(item.status);
-      const whoMeasuredMatch = comparisonFilters.whoMeasured.length === 0 || comparisonFilters.whoMeasured.includes(item.whoMeasured);
-      
-      return sourceMatch && operatorMatch && statusMatch && whoMeasuredMatch;
-    });
+return data.filter(item => {
+  const itemDate = parseDate(item.applicationDate);
+  if (!itemDate) {
+    console.log('Filtered out - invalid date:', item.applicationDate);
+    return false;
+  }
+
+  const startDate = new Date(comparisonDateRange.startDate);
+  // создаём полночь следующего дня
+  const endDate   = new Date(comparisonDateRange.endDate);
+  endDate.setHours(0, 0, 0, 0);
+
+  // теперь включаем все от startDate (00:00) до endDate (00:00 следующего дня) — < endDate
+  if (itemDate < startDate || itemDate >= endDate) {
+    console.log(
+      'Filtered out by date:',
+      item.applicationDate, itemDate,
+      'not in range',
+      startDate, 'to', endDate
+    );
+    return false;
+  }
+
+  // остальные фильтры
+  const sourceMatch      = !comparisonFilters.sources.length || comparisonFilters.sources.includes(item.source);
+  const operatorMatch    = !comparisonFilters.operators.length || comparisonFilters.operators.includes(item.operator);
+  const statusMatch      = !comparisonFilters.statuses.length || comparisonFilters.statuses.includes(item.status);
+  const whoMeasuredMatch = !comparisonFilters.whoMeasured.length || comparisonFilters.whoMeasured.includes(item.whoMeasured);
+
+  return sourceMatch && operatorMatch && statusMatch && whoMeasuredMatch;
+});
+
   }, [data]);
 
   const filteredData = useMemo(() => {
