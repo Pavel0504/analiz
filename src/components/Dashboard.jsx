@@ -534,34 +534,40 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
   }, []);
 
   // Get date range from data
-  const getDateRangeFromData = useCallback(() => {
-    if (data.length === 0) {
-      return {
-        startDate: '2024-01-01',
-        endDate: '2025-12-31'
-      };
-    }
-
-    const validDates = data
-      .map(item => parseDate(item.applicationDate))
-      .filter(date => date !== null)
-      .sort((a, b) => a - b);
-
-    if (validDates.length === 0) {
-      return {
-        startDate: '2024-01-01',
-        endDate: '2025-12-31'
-      };
-    }
-
-    const earliestDate = validDates[0];
-    const latestDate = validDates[validDates.length - 1];
-
+const getDateRangeFromData = useCallback(() => {
+  if (data.length === 0) {
     return {
-      startDate: earliestDate.toISOString().split('T')[0],
-      endDate: latestDate.toISOString().split('T')[0]
+      startDate: '2024-01-01',
+      endDate:   '2025-12-31'
     };
-  }, [data]);
+  }
+
+  const validDates = data
+    .map(item => parseDate(item.applicationDate))
+    .filter(date => date !== null)
+    .sort((a, b) => a - b);
+
+  if (validDates.length === 0) {
+    return {
+      startDate: '2024-01-01',
+      endDate:   '2025-12-31'
+    };
+  }
+
+  // Самая ранняя и самая поздняя даты (полночь этих дней)
+  const earliestDate = validDates[0];
+  const latestDate   = validDates[validDates.length - 1];
+
+  // Создаём новый объект — "следующий день" после latestDate
+  const nextDay = new Date(latestDate);
+  nextDay.setDate(nextDay.getDate() + 1);
+
+  return {
+    // yyyy-MM-dd
+    startDate: earliestDate.toISOString().split('T')[0],
+    endDate:   nextDay.toISOString().split('T')[0]
+  };
+}, [data]);
 
   // Initialize date range when data changes
   useEffect(() => {
