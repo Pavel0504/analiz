@@ -2099,7 +2099,7 @@ return data.filter(item => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-4 sm:p-6 pb-20 sm:pb-6 transition-colors duration-300">
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="space-y-6">
         {(isLayoutMode ? tempLayoutOrder : layoutOrder).map(blockId => renderBlock(blockId))}
 
         {/* Expense Form Modal */}
