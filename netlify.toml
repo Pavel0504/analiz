@@ -20,10 +20,10 @@
 
 # Environment variables (you can set these in Netlify UI instead)
 # [context.production.environment]
-#   VITE_API_URL = "https://51a7c0231cf4.ngrok-free.app"
+#   VITE_API_URL = "https://a8bdfb001a9f.ngrok-free.app"
 
 # [context.deploy-preview.environment]
-#   VITE_API_URL = "https://51a7c0231cf4.ngrok-free.app"
+#   VITE_API_URL = "https://a8bdfb001a9f.ngrok-free.app"
 
 # [context.branch-deploy.environment]
-#   VITE_API_URL = "https://51a7c0231cf4.ngrok-free.app"
+#   VITE_API_URL = "https://a8bdfb001a9f.ngrok-free.app"

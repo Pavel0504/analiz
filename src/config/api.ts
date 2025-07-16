@@ -6,7 +6,7 @@ const isProduction = import.meta.env.PROD;
 export const API_BASE_URL = import.meta.env.VITE_API_URL || 
   (isDevelopment 
     ? 'http://localhost:3001' 
-    : 'https://51a7c0231cf4.ngrok-free.app'
+    : 'https://a8bdfb001a9f.ngrok-free.app'
   );
 
 console.log('API Base URL:', API_BASE_URL);
