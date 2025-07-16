@@ -1,11 +1,11 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, 
-  ResponsiveContainer, FunnelChart, Funnel, Cell, PieChart, Pie, 
-  LineChart, Line, AreaChart, Area 
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  ResponsiveContainer, FunnelChart, Funnel, Cell, PieChart, Pie,
+  LineChart, Line, AreaChart, Area
 } from 'recharts';
-import { 
-  Filter, Download, RefreshCw, TrendingUp, Users, Target, 
+import {
+  Filter, Download, RefreshCw, TrendingUp, Users, Target,
   Calendar, Plus, Edit3, Trash2, BarChart3, Activity, Upload,
   Settings, ChevronUp, ChevronDown, X, Check, LogOut, Copy,
   Clock, ChevronLeft, ChevronRight, Archive
@@ -13,7 +13,7 @@ import {
 
 const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => {
   const [data, setData] = useState(propData || []);
-  
+
   // Comparison state
   const [comparisons, setComparisons] = useState([{
     id: 0,
@@ -30,27 +30,28 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
     }
   }]);
   const [currentComparisonIndex, setCurrentComparisonIndex] = useState(0);
-  
+
   const [expenses, setExpenses] = useState([]);
-  
+
   const [expenseForm, setExpenseForm] = useState({
-    date: new Date().toISOString().split('T')[0],
-    category: 'Реклама',
+    startDate: new Date().toISOString().split('T')[0],
+    endDate: new Date().toISOString().split('T')[0],
+    source: '',
     amount: '',
     description: ''
   });
-  
+
   const [showExpenseForm, setShowExpenseForm] = useState(false);
   const [editingExpense, setEditingExpense] = useState(null);
-  
+
   // Layout management states
   const [isLayoutMode, setIsLayoutMode] = useState(false);
-  
+
   // Default layout order
   const defaultLayout = [
     'header',
     'comparison',
-    'filters', 
+    'filters',
     'metrics',
     'salesFunnel',
     'sourceDistribution',
@@ -58,28 +59,28 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
     'expensesTrend',
     'expenseDetails'
   ];
-  
+
   const [layoutOrder, setLayoutOrder] = useState(() => {
     const saved = localStorage.getItem('dashboardLayout');
     return saved ? JSON.parse(saved) : defaultLayout;
   });
-  
+
   const [tempLayoutOrder, setTempLayoutOrder] = useState(layoutOrder);
 
   // Filter and metrics ordering states
   const defaultFilterOrder = ['sources', 'operators', 'statuses', 'whoMeasured'];
   const defaultMetricsOrder = ['total', 'measurements', 'contracts', 'inProgress', 'refusals', 'conversionRate', 'costPerLead', 'roi'];
-  
+
   const [filterOrder, setFilterOrder] = useState(() => {
     const saved = localStorage.getItem('dashboardFilterOrder');
     return saved ? JSON.parse(saved) : defaultFilterOrder;
   });
-  
+
   const [metricsOrder, setMetricsOrder] = useState(() => {
     const saved = localStorage.getItem('dashboardMetricsOrder');
     return saved ? JSON.parse(saved) : defaultMetricsOrder;
   });
-  
+
   const [tempFilterOrder, setTempFilterOrder] = useState(filterOrder);
   const [tempMetricsOrder, setTempMetricsOrder] = useState(metricsOrder);
 
@@ -104,7 +105,7 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
   const cleanupOldBackups = () => {
     try {
       const backupHistory = JSON.parse(localStorage.getItem('backupHistory') || '[]');
-      
+
       // Remove old backup data files
       const keysToRemove = [];
       for (let key in localStorage) {
@@ -141,7 +142,7 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
       // Check storage size before saving
       const currentSize = getStorageSize();
       const newDataSize = JSON.stringify(value).length;
-      
+
       // If storage is getting full (>4MB), cleanup old data
       if (currentSize + newDataSize > 4 * 1024 * 1024) {
         cleanupOldBackups();
@@ -236,7 +237,7 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
     try {
       const currentExpenses = JSON.parse(localStorage.getItem('expenses') || '[]');
       const currentParseData = JSON.parse(localStorage.getItem('parseData') || '[]');
-      
+
       const backupEntry = {
         id: Date.now(),
         timestamp: new Date().toISOString(),
@@ -277,7 +278,7 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
     try {
       const currentData = JSON.parse(localStorage.getItem('dashboardData') || '[]');
       const currentParseData = JSON.parse(localStorage.getItem('parseData') || '[]');
-      
+
       const backupEntry = {
         id: Date.now(),
         timestamp: new Date().toISOString(),
@@ -336,10 +337,10 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
 
   const removeComparison = (index) => {
     if (index === 0 || comparisons.length <= 1) return;
-    
+
     const newComparisons = comparisons.filter((_, i) => i !== index);
     setComparisons(newComparisons);
-    
+
     // Adjust current index if necessary
     if (currentComparisonIndex >= newComparisons.length) {
       setCurrentComparisonIndex(newComparisons.length - 1);
@@ -349,8 +350,8 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
   };
 
   const updateComparison = (index, updates) => {
-    setComparisons(prev => prev.map((comp, i) => 
-      i === index 
+    setComparisons(prev => prev.map((comp, i) =>
+      i === index
         ? { ...comp, ...updates }
         : comp
     ));
@@ -445,18 +446,19 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
 
   // Expense management functions
   const addExpense = useCallback(async () => {
-    if (!expenseForm.amount || !expenseForm.description) return;
-    
+    if (!expenseForm.amount || !expenseForm.description || !expenseForm.source) return;
+
     const newExpense = {
       id: Date.now(),
-      date: expenseForm.date,
-      category: expenseForm.category,
+      startDate: expenseForm.startDate,
+      endDate: expenseForm.endDate,
+      source: expenseForm.source,
       amount: parseFloat(expenseForm.amount),
       description: expenseForm.description
     };
-    
+
     const updatedExpenses = [...expenses, newExpense];
-    
+
     try {
       // Save to localStorage with error handling
       const saved = safeSetItem('expenses', updatedExpenses);
@@ -467,8 +469,9 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
         saveExpenseBackup(updatedExpenses, 'expense_added');
         
         setExpenseForm({
-          date: new Date().toISOString().split('T')[0],
-          category: 'Реклама',
+          startDate: new Date().toISOString().split('T')[0],
+          endDate: new Date().toISOString().split('T')[0],
+          source: '',
           amount: '',
           description: ''
         });
@@ -480,14 +483,14 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
   }, [expenseForm, expenses, saveExpenseBackup]);
 
   const updateExpense = useCallback(async () => {
-    if (!expenseForm.amount || !expenseForm.description) return;
-    
+    if (!expenseForm.amount || !expenseForm.description || !expenseForm.source) return;
+
     const updatedExpenses = expenses.map(expense =>
       expense.id === editingExpense.id
         ? { ...expense, ...expenseForm, amount: parseFloat(expenseForm.amount) }
         : expense
     );
-    
+
     try {
       // Save to localStorage with error handling
       const saved = safeSetItem('expenses', updatedExpenses);
@@ -507,7 +510,7 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
 
   const deleteExpense = useCallback(async (id) => {
     const updatedExpenses = expenses.filter(expense => expense.id !== id);
-    
+
     try {
       // Save to localStorage with error handling
       const saved = safeSetItem('expenses', updatedExpenses);
@@ -525,8 +528,9 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
   const startEditExpense = useCallback((expense) => {
     setEditingExpense(expense);
     setExpenseForm({
-      date: expense.date,
-      category: expense.category,
+      startDate: expense.startDate,
+      endDate: expense.endDate,
+      source: expense.source,
       amount: expense.amount.toString(),
       description: expense.description
     });
@@ -534,55 +538,54 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
   }, []);
 
   // Get date range from data
-const getDateRangeFromData = useCallback(() => {
-  if (data.length === 0) {
+  const getDateRangeFromData = useCallback(() => {
+    if (data.length === 0) {
+      return {
+        startDate: '2024-01-01',
+        // тут возвращаем сегодня
+        endDate: new Date().toISOString().split('T')[0]
+      };
+    }
+
+    // Вычисляем самую раннюю дату, как раньше
+    const validDates = data
+      .map(item => parseDate(item.applicationDate))
+      .filter(d => d)
+      .sort((a, b) => a - b);
+
+    if (!validDates.length) {
+      return {
+        startDate: '2024-01-01',
+        endDate: new Date().toISOString().split('T')[0]
+      };
+    }
+
+    const earliestDate = validDates[0];
+    // Форматируем сегодняшнюю дату:
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
     return {
-      startDate: '2024-01-01',
-      // тут возвращаем сегодня
-      endDate:   new Date().toISOString().split('T')[0]
+      startDate: earliestDate.toISOString().split('T')[0],
+      endDate: today.toISOString().split('T')[0]
     };
-  }
-
-  // Вычисляем самую раннюю дату, как раньше
-  const validDates = data
-    .map(item => parseDate(item.applicationDate))
-    .filter(d => d)
-    .sort((a, b) => a - b);
-
-  if (!validDates.length) {
-    return {
-      startDate: '2024-01-01',
-      endDate:   new Date().toISOString().split('T')[0]
-    };
-  }
-
-  const earliestDate = validDates[0];
-  // Форматируем сегодняшнюю дату:
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  return {
-    startDate: earliestDate.toISOString().split('T')[0],
-    endDate:   today.toISOString().split('T')[0]
-  };
-}, [data]);
-
+  }, [data]);
 
   // Initialize date range when data changes
   useEffect(() => {
     if (data.length > 0) {
       const autoDateRange = getDateRangeFromData();
-      updateComparison(currentComparisonIndex, { 
+      updateComparison(currentComparisonIndex, {
         dateRange: autoDateRange
       });
     }
   }, [data, getDateRangeFromData, currentComparisonIndex]);
 
-    // Apply date filter function
+  // Apply date filter function
   const applyDateFilter = useCallback(() => {
     // Force re-calculation of filtered data
     console.log('Применение фильтра по датам:', dateRange);
-    
+
     // This will trigger re-calculation of filteredData through useMemo dependency
     updateComparison(currentComparisonIndex, { 
       dateRange: { ...dateRange }
@@ -590,59 +593,59 @@ const getDateRangeFromData = useCallback(() => {
   }, [dateRange, currentComparisonIndex]);
 
   // Улучшенная функция парсинга даты
-const parseDate = (dateStr) => {
-  if (!dateStr || dateStr === 'Не указано' || dateStr.trim() === '') {
-    return null;
-  }
+  const parseDate = (dateStr) => {
+    if (!dateStr || dateStr === 'Не указано' || dateStr.trim() === '') {
+      return null;
+    }
 
-  try {
-    // Маппинг русских месяцев в индексы для Date
-    const months = {
-      'января': 0,   'февраля': 1, 'марта': 2,   'апреля': 3,
-      'мая': 4,      'июня': 5,     'июля': 6,     'августа': 7,
-      'сентября': 8, 'октября': 9,  'ноября': 10,  'декабря': 11
-    };
+    try {
+      // Маппинг русских месяцев в индексы для Date
+      const months = {
+        'января': 0,   'февраля': 1, 'марта': 2,   'апреля': 3,
+        'мая': 4,      'июня': 5,     'июля': 6,     'августа': 7,
+        'сентября': 8, 'октября': 9,  'ноября': 10,  'декабря': 11
+      };
 
-    // 1) Русский формат "5 Июня 2025 г. ..." — берём только день, месяц, год
-    const rus = dateStr.match(/(\d{1,2})\s+([А-Яа-яёЁ]+)\s+(\d{4})/);
-    if (rus) {
-      const [, dayStr, monthName, yearStr] = rus;
-      const day   = Number(dayStr);
-      const month = months[monthName.toLowerCase()];
-      const year  = Number(yearStr);
-      if (month != null) {
-        const d = new Date(year, month, day);
-        // Обнуляем время — оставляем полночь
+      // 1) Русский формат "5 Июня 2025 г. ..." — берём только день, месяц, год
+      const rus = dateStr.match(/(\d{1,2})\s+([А-Яа-яёЁ]+)\s+(\d{4})/);
+      if (rus) {
+        const [, dayStr, monthName, yearStr] = rus;
+        const day   = Number(dayStr);
+        const month = months[monthName.toLowerCase()];
+        const year  = Number(yearStr);
+        if (month != null) {
+          const d = new Date(year, month, day);
+          // Обнуляем время — оставляем полночь
+          d.setHours(0, 0, 0, 0);
+          return d;
+        }
+      }
+
+      // 2) Формат "DD.MM.YYYY"
+      const dot = dateStr.match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/);
+      if (dot) {
+        const [, dStr, mStr, yStr] = dot;
+        const d = new Date(Number(yStr), Number(mStr) - 1, Number(dStr));
         d.setHours(0, 0, 0, 0);
         return d;
       }
-    }
 
-    // 2) Формат "DD.MM.YYYY"
-    const dot = dateStr.match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/);
-    if (dot) {
-      const [, dStr, mStr, yStr] = dot;
-      const d = new Date(Number(yStr), Number(mStr) - 1, Number(dStr));
-      d.setHours(0, 0, 0, 0);
-      return d;
-    }
+      // 3) ISO-формат "YYYY-MM-DD" или "YYYY/MM/DD"
+      const iso = dateStr.match(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+      if (iso) {
+        const [, yStr, mStr, dStr] = iso;
+        const d = new Date(Number(yStr), Number(mStr) - 1, Number(dStr));
+        d.setHours(0, 0, 0, 0);
+        return d;
+      }
 
-    // 3) ISO-формат "YYYY-MM-DD" или "YYYY/MM/DD"
-    const iso = dateStr.match(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
-    if (iso) {
-      const [, yStr, mStr, dStr] = iso;
-      const d = new Date(Number(yStr), Number(mStr) - 1, Number(dStr));
-      d.setHours(0, 0, 0, 0);
-      return d;
+      // Если ни один формат не подошёл — возвращаем null
+      return null;
+    } catch (e) {
+      console.error('Date parsing error:', dateStr, e);
+      return null;
     }
-
-    // Если ни один формат не подошёл — возвращаем null
-    return null;
-  } catch (e) {
-    console.error('Date parsing error:', dateStr, e);
-    return null;
-  }
-};
+  };
 
   const uniqueValues = useMemo(() => {
     return {
@@ -656,54 +659,65 @@ const parseDate = (dateStr) => {
   const getFilteredData = useCallback((comparisonFilters, comparisonDateRange) => {
     console.log('Filtering data with date range:', comparisonDateRange);
     console.log('Total data items:', data.length);
-    
-return data.filter(item => {
-  const itemDate = parseDate(item.applicationDate);
-  if (!itemDate) {
-    console.log('Filtered out - invalid date:', item.applicationDate);
-    return false;
-  }
 
-  const startDate = new Date(comparisonDateRange.startDate);
-  // создаём полночь следующего дня
-  const endDate   = new Date(comparisonDateRange.endDate);
-  endDate.setHours(0, 0, 0, 0);
+    return data.filter(item => {
+      const itemDate = parseDate(item.applicationDate);
+      if (!itemDate) {
+        console.log('Filtered out - invalid date:', item.applicationDate);
+        return false;
+      }
 
-  // теперь включаем все от startDate (00:00) до endDate (00:00 следующего дня) — < endDate
-  if (itemDate < startDate || itemDate >= endDate) {
-    console.log(
-      'Filtered out by date:',
-      item.applicationDate, itemDate,
-      'not in range',
-      startDate, 'to', endDate
-    );
-    return false;
-  }
+      const startDate = new Date(comparisonDateRange.startDate);
+      // создаём полночь следующего дня
+      const endDate = new Date(comparisonDateRange.endDate);
+      endDate.setHours(0, 0, 0, 0);
 
-  // остальные фильтры
-  const sourceMatch      = !comparisonFilters.sources.length || comparisonFilters.sources.includes(item.source);
-  const operatorMatch    = !comparisonFilters.operators.length || comparisonFilters.operators.includes(item.operator);
-  const statusMatch      = !comparisonFilters.statuses.length || comparisonFilters.statuses.includes(item.status);
-  const whoMeasuredMatch = !comparisonFilters.whoMeasured.length || comparisonFilters.whoMeasured.includes(item.whoMeasured);
+      // теперь включаем все от startDate (00:00) до endDate (00:00 следующего дня) — < endDate
+      if (itemDate < startDate || itemDate >= endDate) {
+        console.log(
+          'Filtered out by date:',
+          item.applicationDate, itemDate,
+          'not in range',
+          startDate, 'to', endDate
+        );
+        return false;
+      }
 
-  return sourceMatch && operatorMatch && statusMatch && whoMeasuredMatch;
-});
+      // остальные фильтры
+      const sourceMatch = !comparisonFilters.sources.length || comparisonFilters.sources.includes(item.source);
+      const operatorMatch = !comparisonFilters.operators.length || comparisonFilters.operators.includes(item.operator);
+      const statusMatch = !comparisonFilters.statuses.length || comparisonFilters.statuses.includes(item.status);
+      const whoMeasuredMatch = !comparisonFilters.whoMeasured.length || comparisonFilters.whoMeasured.includes(item.whoMeasured);
 
+      return sourceMatch && operatorMatch && statusMatch && whoMeasuredMatch;
+    });
   }, [data]);
 
   const filteredData = useMemo(() => {
     return getFilteredData(filters, dateRange);
   }, [getFilteredData, filters, dateRange]);
 
+  // Обновленная фильтрация расходов с учетом источников
   const filteredExpenses = useMemo(() => {
     return expenses.filter(expense => {
-      const expenseDate = new Date(expense.date);
-      const startDate = new Date(dateRange.startDate);
-      const endDate = new Date(dateRange.endDate);
+      // Проверяем попадание в диапазон дат
+      const expenseStartDate = new Date(expense.startDate);
+      const expenseEndDate = new Date(expense.endDate);
+      const filterStartDate = new Date(dateRange.startDate);
+      const filterEndDate = new Date(dateRange.endDate);
+
+      // Проверяем пересечение периодов
+      const dateMatch = expenseStartDate <= filterEndDate && expenseEndDate >= filterStartDate;
       
-      return expenseDate >= startDate && expenseDate <= endDate;
+      if (!dateMatch) return false;
+
+      // Проверяем фильтр по источникам
+      // Если источники не выбраны (показываем все) или выбран источник расхода
+      const sourceMatch = !filters.sources.length || filters.sources.includes(expense.source);
+      
+      return sourceMatch;
     });
-  }, [expenses, dateRange]);
+  }, [expenses, dateRange, filters.sources]);
 
   const totalBudget = useMemo(() => {
     return filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0);
@@ -733,20 +747,20 @@ return data.filter(item => {
   // Calculate funnel data based on image logic
   const getFunnelData = useCallback((comparisonData, comparisonBudget) => {
     const total = comparisonData.length;
-    const measurements = comparisonData.filter(item => 
+    const measurements = comparisonData.filter(item =>
       item.status && (
-        item.status.includes('замер') || 
+        item.status.includes('замер') ||
         item.status.includes('Замер') ||
         item.status.includes('Договор')
       )
     ).length;
     const contracts = comparisonData.filter(item => item.status === 'Договор').length;
-    
+
     // Calculate cost per lead for each stage
     const costPerTotal = total > 0 ? Math.round(comparisonBudget / total) : 0;
     const costPerMeasurement = measurements > 0 ? Math.round(comparisonBudget / measurements) : 0;
     const costPerContract = contracts > 0 ? Math.round(comparisonBudget / contracts) : 0;
-    
+
     return [
       { 
         name: 'Заявок', 
@@ -791,33 +805,25 @@ return data.filter(item => {
       if (item.status === 'Договор') operatorStats[item.operator].contracts++;
       if (item.status === 'Отказ') operatorStats[item.operator].refusals++;
     });
-    
+
     return Object.values(operatorStats);
   }, [filteredData]);
 
   const expensesTrendData = useMemo(() => {
     const monthlyExpenses = {};
     filteredExpenses.forEach(expense => {
-      const month = expense.date.substring(0, 7);
+      const month = expense.startDate.substring(0, 7);
       if (!monthlyExpenses[month]) {
-        monthlyExpenses[month] = { 
-          month, 
-          total: 0, 
-          advertising: 0, 
-          settings: 0, 
-          other: 0 
+        monthlyExpenses[month] = {
+          month,
+          total: 0,
+          [expense.source]: 0
         };
       }
       monthlyExpenses[month].total += expense.amount;
-      if (expense.category === 'Реклама') {
-        monthlyExpenses[month].advertising += expense.amount;
-      } else if (expense.category === 'Настройка') {
-        monthlyExpenses[month].settings += expense.amount;
-      } else {
-        monthlyExpenses[month].other += expense.amount;
-      }
+      monthlyExpenses[month][expense.source] = (monthlyExpenses[month][expense.source] || 0) + expense.amount;
     });
-    
+
     return Object.values(monthlyExpenses).sort((a, b) => a.month.localeCompare(b.month));
   }, [filteredExpenses]);
 
@@ -829,7 +835,7 @@ return data.filter(item => {
       }
       sourceStats[item.source].count++;
     });
-    
+
     return Object.values(sourceStats);
   }, []);
 
@@ -839,15 +845,15 @@ return data.filter(item => {
 
   const getMetrics = useCallback((comparisonData, comparisonBudget) => {
     const total = comparisonData.length;
-    const measurements = comparisonData.filter(item => 
+    const measurements = comparisonData.filter(item =>
       item.status && (
-        item.status.includes('замер') || 
+        item.status.includes('замер') ||
         item.status.includes('Замер') ||
         item.status.includes('Договор')
       )
     ).length;
     const contracts = comparisonData.filter(item => item.status === 'Договор').length;
-    
+
     // Детализация "В работе"
     const callBeforeMeasurement = comparisonData.filter(item => 
       item.status && item.status.includes('❓Созвон до замера')
@@ -858,13 +864,13 @@ return data.filter(item => {
     const pushAfterMeasurement = comparisonData.filter(item => 
       item.status && item.status.includes('Дожать (был замер)')
     ).length;
-    
+
     const inProgress = callBeforeMeasurement + callBeforeMeasurementImportant + pushAfterMeasurement;
-    
+
     const refusals = comparisonData.filter(item => item.status === 'Отказ').length;
     const conversionRate = total > 0 ? (contracts / total * 100).toFixed(1) : 0;
     const costPerLead = total > 0 ? (comparisonBudget / total).toFixed(0) : 0;
-    
+
     let roi = 0;
     if (comparisonBudget > 0 && contracts > 0) {
       const revenue = contracts * 50000;
@@ -874,7 +880,7 @@ return data.filter(item => {
     } else {
       roi = 0;
     }
-    
+
     return {
       total,
       measurements,
@@ -901,7 +907,7 @@ return data.filter(item => {
       const data = payload[0];
       const total = sourceData.reduce((sum, item) => sum + item.count, 0);
       const percentage = total > 0 ? ((data.value / total) * 100).toFixed(1) : 0;
-      
+
       return (
         <div className="bg-white dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg">
           <p className="font-medium text-gray-800 dark:text-gray-200">{`Источник: ${data.payload.name}`}</p>
@@ -941,7 +947,7 @@ return data.filter(item => {
     const currentIndex = tempLayoutOrder.indexOf(id);
     const isFirst = currentIndex === 0;
     const isLast = currentIndex === tempLayoutOrder.length - 1;
-    
+
     return (
       <div className={`${className} ${isLayoutMode ? 'relative' : ''} transition-all duration-200`}>
         {isLayoutMode && (
@@ -994,7 +1000,7 @@ return data.filter(item => {
       statuses: [],
       whoMeasured: []
     };
-    
+
     const filterNames = {
       sources: 'Источники',
       operators: 'Операторы', 
@@ -1078,7 +1084,7 @@ return data.filter(item => {
     const isFirst = index === 0;
     const isLast = index === tempMetricsOrder.length - 1;
     const isExpanded = expandedMetrics[`${metricId}_${comparisonIndex}`];
-    
+
     const comparison = comparisons[comparisonIndex];
     const comparisonData = getFilteredData(comparison?.filters || {
       sources: [],
@@ -1091,7 +1097,7 @@ return data.filter(item => {
     });
     const comparisonBudget = filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0);
     const comparisonMetrics = getMetrics(comparisonData, comparisonBudget);
-    
+
     const metricConfigs = {
       total: {
         label: 'Всего заявок',
@@ -1384,8 +1390,8 @@ return data.filter(item => {
                     handleLayoutModeToggle();
                   }}
                   className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg transition-all duration-200 hover:scale-105 shadow-md text-sm ${
-                    isLayoutMode 
-                      ? 'bg-orange-500 hover:bg-orange-600 text-white' 
+                    isLayoutMode
+                      ? 'bg-orange-500 hover:bg-orange-600 text-white'
                       : 'bg-purple-500 hover:bg-purple-600 text-white'
                   }`}
                 >
@@ -1470,31 +1476,31 @@ return data.filter(item => {
                   <input
                     type="date"
                     value={dateRange.startDate}
-                     onChange={(e) => {
-                       e.preventDefault();
-                       e.stopPropagation();
-                       updateComparison(currentComparisonIndex, { 
-                         dateRange: { ...dateRange, startDate: e.target.value }
-                       });
-                     }}
-                     className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                   />
-                 </div>
-                 <div className="flex items-center gap-2">
-                   <label className="text-sm font-medium text-gray-600 dark:text-gray-400">По:</label>
-                   <input
-                     type="date"
-                     value={dateRange.endDate}
-                     onChange={(e) => {
-                       e.preventDefault();
-                       e.stopPropagation();
-                       updateComparison(currentComparisonIndex, { 
-                         dateRange: { ...dateRange, endDate: e.target.value }
-                       });
-                     }}
-                     className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                   />
-                 </div>
+                    onChange={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      updateComparison(currentComparisonIndex, { 
+                        dateRange: { ...dateRange, startDate: e.target.value }
+                      });
+                    }}
+                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-medium text-gray-600 dark:text-gray-400">По:</label>
+                  <input
+                    type="date"
+                    value={dateRange.endDate}
+                    onChange={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      updateComparison(currentComparisonIndex, { 
+                        dateRange: { ...dateRange, endDate: e.target.value }
+                      });
+                    }}
+                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  />
+                </div>
                 <button
                   onClick={(e) => {
                     e.preventDefault();
@@ -1505,21 +1511,21 @@ return data.filter(item => {
                 >
                   Применить
                 </button>
-                 <button
-                   onClick={(e) => {
-                     e.preventDefault();
-                     e.stopPropagation();
-                     updateComparison(currentComparisonIndex, {
-                       dateRange: {
-                         startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
-                         endDate: new Date().toISOString().split('T')[0]
-                       }
-                     });
-                   }}
-                   className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 transition-all duration-200 hover:scale-105"
-                 >
-                   Текущий месяц
-                 </button>
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    updateComparison(currentComparisonIndex, {
+                      dateRange: {
+                        startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
+                        endDate: new Date().toISOString().split('T')[0]
+                      }
+                    });
+                  }}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 transition-all duration-200 hover:scale-105"
+                >
+                  Текущий месяц
+                </button>
                 <button
                   onClick={(e) => {
                     e.preventDefault();
@@ -1533,7 +1539,7 @@ return data.filter(item => {
                 >
                   Весь период
                 </button>
-               </div>
+              </div>
             </div>
 
             {/* Budget Overview */}
@@ -1975,10 +1981,6 @@ return data.filter(item => {
                     <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.8}/>
                     <stop offset="95%" stopColor="#3B82F6" stopOpacity={0.1}/>
                   </linearGradient>
-                  <linearGradient id="advertisingGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10B981" stopOpacity={0.8}/>
-                    <stop offset="95%" stopColor="#10B981" stopOpacity={0.1}/>
-                  </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="month" stroke="#666" />
@@ -2003,17 +2005,6 @@ return data.filter(item => {
                   strokeWidth={2}
                   isAnimationActive
                   animationDuration={1500}
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="advertising" 
-                  stroke="#10B981" 
-                  fillOpacity={1}
-                  fill="url(#advertisingGradient)"
-                  name="Реклама"
-                  strokeWidth={2}
-                  isAnimationActive
-                  animationDuration={1700}
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -2042,16 +2033,12 @@ return data.filter(item => {
                       <div className="flex-1">
                         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 mb-1">
                           <span className="font-medium text-gray-800 dark:text-gray-200">{expense.description}</span>
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            expense.category === 'Реклама' ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300' :
-                            expense.category === 'Настройка' ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' :
-                            'bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-300'
-                          }`}>
-                            {expense.category}
+                          <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
+                            {expense.source}
                           </span>
                         </div>
                         <div className="text-sm text-gray-500 dark:text-gray-400">
-                          {new Date(expense.date).toLocaleDateString('ru-RU')}
+                          {new Date(expense.startDate).toLocaleDateString('ru-RU')} - {new Date(expense.endDate).toLocaleDateString('ru-RU')}
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
@@ -2109,27 +2096,36 @@ return data.filter(item => {
               
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Дата</label>
+                  <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Дата начала</label>
                   <input
                     type="date"
-                    value={expenseForm.date}
-                    onChange={(e) => setExpenseForm(prev => ({...prev, date: e.target.value}))}
+                    value={expenseForm.startDate}
+                    onChange={(e) => setExpenseForm(prev => ({...prev, startDate: e.target.value}))}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Дата окончания</label>
+                  <input
+                    type="date"
+                    value={expenseForm.endDate}
+                    onChange={(e) => setExpenseForm(prev => ({...prev, endDate: e.target.value}))}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Категория</label>
+                  <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Источник</label>
                   <select
-                    value={expenseForm.category}
-                    onChange={(e) => setExpenseForm(prev => ({...prev, category: e.target.value}))}
+                    value={expenseForm.source}
+                    onChange={(e) => setExpenseForm(prev => ({...prev, source: e.target.value}))}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                   >
-                    <option value="Реклама">Реклама</option>
-                    <option value="Настройка">Настройка</option>
-                    <option value="Зарплата">Зарплата</option>
-                    <option value="Офис">Офис</option>
-                    <option value="Другое">Другое</option>
+                    <option value="">Выберите источник</option>
+                    {uniqueValues.sources.map(source => (
+                      <option key={source} value={source}>{source}</option>
+                    ))}
                   </select>
                 </div>
                 
@@ -2174,8 +2170,9 @@ return data.filter(item => {
                     setShowExpenseForm(false);
                     setEditingExpense(null);
                     setExpenseForm({
-                      date: new Date().toISOString().split('T')[0],
-                      category: 'Реклама',
+                      startDate: new Date().toISOString().split('T')[0],
+                      endDate: new Date().toISOString().split('T')[0],
+                      source: '',
                       amount: '',
                       description: ''
                     });
