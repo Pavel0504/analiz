@@ -668,12 +668,14 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
       }
 
       const startDate = new Date(comparisonDateRange.startDate);
-      // создаём полночь следующего дня
+      startDate.setHours(0, 0, 0, 0);
+      
+      // Создаём конец дня для endDate (23:59:59.999)
       const endDate = new Date(comparisonDateRange.endDate);
-      endDate.setHours(0, 0, 0, 0);
+      endDate.setHours(23, 59, 59, 999);
 
-      // теперь включаем все от startDate (00:00) до endDate (00:00 следующего дня) — < endDate
-      if (itemDate < startDate || itemDate >= endDate) {
+      // Включаем все от startDate (00:00) до endDate (23:59:59.999)
+      if (itemDate < startDate || itemDate > endDate) {
         console.log(
           'Filtered out by date:',
           item.applicationDate, itemDate,
@@ -747,13 +749,16 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
   // Calculate funnel data based on image logic
   const getFunnelData = useCallback((comparisonData, comparisonBudget) => {
     const total = comparisonData.length;
-    const measurements = comparisonData.filter(item =>
-      item.status && (
-        item.status.includes('замер') ||
-        item.status.includes('Замер') ||
-        item.status.includes('Договор')
-      )
-    ).length;
+    
+    // Назначен замер: все статусы содержащие "Замер", "Договор", "Дожать (был замер)"
+    const measurements = comparisonData.filter(item => {
+      if (!item.status) return false;
+      const status = item.status.toLowerCase();
+      return status.includes('замер') || 
+             status.includes('договор') || 
+             status.includes('дожать (был замер)');
+    }).length;
+    
     const contracts = comparisonData.filter(item => item.status === 'Договор').length;
 
     // Calculate cost per lead for each stage
@@ -845,16 +850,32 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
 
   const getMetrics = useCallback((comparisonData, comparisonBudget) => {
     const total = comparisonData.length;
-    const measurements = comparisonData.filter(item =>
-      item.status && (
-        item.status.includes('замер') ||
-        item.status.includes('Замер') ||
-        item.status.includes('Договор')
-      )
-    ).length;
+    
+    // Назначен замер: все статусы содержащие "Замер", "Договор", "Дожать (был замер)"
+    const measurements = comparisonData.filter(item => {
+      if (!item.status) return false;
+      const status = item.status.toLowerCase();
+      return status.includes('замер') || 
+             status.includes('договор') || 
+             status.includes('дожать (был замер)');
+    }).length;
+    
     const contracts = comparisonData.filter(item => item.status === 'Договор').length;
 
-    // Детализация "В работе"
+    // В работе: 👍Созвон до замера ВАЖНО, ❓Созвон до замера, недозвон, Замер, Дожать (был замер)
+    const inProgressItems = comparisonData.filter(item => {
+      if (!item.status) return false;
+      const status = item.status.toLowerCase();
+      return status.includes('👍созвон до замера важно') ||
+             status.includes('❓созвон до замера') ||
+             status.includes('недозвон') ||
+             status.includes('замер') ||
+             status.includes('дожать (был замер)');
+    });
+
+    const inProgress = inProgressItems.length;
+    
+    // Детализация "В работе" для расширенной информации
     const callBeforeMeasurement = comparisonData.filter(item => 
       item.status && item.status.includes('❓Созвон до замера')
     ).length;
@@ -864,8 +885,15 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
     const pushAfterMeasurement = comparisonData.filter(item => 
       item.status && item.status.includes('Дожать (был замер)')
     ).length;
-
-    const inProgress = callBeforeMeasurement + callBeforeMeasurementImportant + pushAfterMeasurement;
+    const nedozvon = comparisonData.filter(item => 
+      item.status && item.status.toLowerCase().includes('недозвон')
+    ).length;
+    const measurementInProgress = comparisonData.filter(item => {
+      if (!item.status) return false;
+      const status = item.status.toLowerCase();
+      // Замер, но не "Дожать (был замер)" - это отдельная категория
+      return status.includes('замер') && !status.includes('дожать (был замер)');
+    }).length;
 
     const refusals = comparisonData.filter(item => item.status === 'Отказ').length;
     const conversionRate = total > 0 ? (contracts / total * 100).toFixed(1) : 0;
@@ -893,7 +921,9 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
       // Детализация "В работе"
       callBeforeMeasurement,
       callBeforeMeasurementImportant,
-      pushAfterMeasurement
+      pushAfterMeasurement,
+      nedozvon,
+      measurementInProgress
     };
   }, []);
 
@@ -1140,7 +1170,9 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
         expandedInfo: {
           'Созвон до замера': comparisonMetrics.callBeforeMeasurement,
           'Созвон до замера важно': comparisonMetrics.callBeforeMeasurementImportant,
-          'Дожать был замер': comparisonMetrics.pushAfterMeasurement
+          'Дожать был замер': comparisonMetrics.pushAfterMeasurement,
+          'Недозвон': comparisonMetrics.nedozvon,
+          'Замер в процессе': comparisonMetrics.measurementInProgress
         }
       },
       refusals: {
