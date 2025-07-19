@@ -171,46 +171,46 @@ const parseUploadedData = (filePath) => {
     for (let rowNum = range.s.r + 1; rowNum <= range.e.r; rowNum++) {
       const row = {};
       
-      // Column B - Источник (source) - index 1
-      const sourceValue = getCellValue(worksheet, rowNum, 1);
+      // Column A - Источник (source) - index 1
+      const sourceValue = getCellValue(worksheet, rowNum, 0);
       row.source = sourceValue || 'Не указано';
       
-      // Column C - Статус (status) - index 2
-      const statusValue = getCellValue(worksheet, rowNum, 2);
+      // Column B - Статус (status) - index 2
+      const statusValue = getCellValue(worksheet, rowNum, 1);
       row.status = statusValue || 'Не указано';
       
-      // Column D - Дата заявки (applicationDate) - index 3
-      const appDateValue = getCellValue(worksheet, rowNum, 3);
+      // Column C - Дата заявки (applicationDate) - index 3
+      const appDateValue = getCellValue(worksheet, rowNum, 2);
       row.applicationDate = appDateValue ? formatDate(appDateValue) : 'Не указано';
       
-      // Column E - Комментарий (comment) - index 4
-      row.comment = getCellValue(worksheet, rowNum, 4) || '';
+      // Column D - Комментарий (comment) - index 4
+      //row.comment = getCellValue(worksheet, rowNum, 4) || '';
       
-      // Column F - Дата Следующего шага (nextStepDate) - index 5
-      const nextStepValue = getCellValue(worksheet, rowNum, 5);
-      row.nextStepDate = nextStepValue ? formatDate(nextStepValue) : 'Не указано';
+      // Column E - Дата Следующего шага (nextStepDate) - index 5
+      //const nextStepValue = getCellValue(worksheet, rowNum, 5);
+      //row.nextStepDate = nextStepValue ? formatDate(nextStepValue) : 'Не указано';
       
       // Column I - Воронка продаж (voronka) - index 8
-      const voronkaValue = getCellValue(worksheet, rowNum, 8);
-      row.voronka = voronkaValue || '';
+      //const voronkaValue = getCellValue(worksheet, rowNum, 8);
+      //row.voronka = voronkaValue || '';
       
       // Column S - Время обработки в минутах (processingTime) - index 18
-      const processingTimeValue = getCellValue(worksheet, rowNum, 18);
-      row.processingTime = processingTimeValue ? parseFloat(processingTimeValue) || 0.0 : 0.0;
+      //const processingTimeValue = getCellValue(worksheet, rowNum, 18);
+      //row.processingTime = processingTimeValue ? parseFloat(processingTimeValue) || 0.0 : 0.0;
       
       // Column T - Отметка об обработке (processed) - index 19
-      row.processed = getCellValue(worksheet, rowNum, 19) || '';
+      //row.processed = getCellValue(worksheet, rowNum, 19) || '';
       
-      // Column U - Кто замерял / Воронка продаж (whoMeasured) - index 20
-      const whoMeasuredValue = getCellValue(worksheet, rowNum, 20);
+      // Column D - Кто замерял / Воронка продаж (whoMeasured) - index 20
+      const whoMeasuredValue = getCellValue(worksheet, rowNum, 3);
       row.whoMeasured = whoMeasuredValue || 'Не указано';
       
-      // Column Z - Оператор (operator) - index 25
-      const operatorValue = getCellValue(worksheet, rowNum, 25);
+      // Column E - Оператор (operator) - index 25
+      const operatorValue = getCellValue(worksheet, rowNum, 4);
       row.operator = operatorValue || 'Не указано';
       
       // Determine sales funnel stage based on status and voronka
-      row.salesFunnel = determineSalesFunnel(row.status, row.voronka);
+      //row.salesFunnel = determineSalesFunnel(row.status, row.voronka);
       
       // Add ID
       row.id = rowNum - 1; // Start from 0 since we skip header row
