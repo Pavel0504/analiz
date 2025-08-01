@@ -93,24 +93,19 @@ if (!fs.existsSync(expensesFilePath)) {
   );
 }
 
-// Function to format date from Russian format to DD.MM.YYYY
-// Function to format date from various inputs to DD.MM.YYYY
 const formatDate = (dateStr) => {
   if (!dateStr || dateStr === "Не указано") return "Не указано";
 
   try {
-    // 0) Если это уже Date-объект (cellDates: true)
     if (dateStr instanceof Date) {
-      // Берём UTC-день/месяц, чтобы избежать смещения
-      const day = String(dateStr.getUTCDate()).padStart(2, "0");
-      const month = String(dateStr.getUTCMonth() + 1).padStart(2, "0");
-      const year = dateStr.getUTCFullYear();
+      const day = String(dateStr.getDate()).padStart(2, "0");
+      const month = String(dateStr.getMonth() + 1).padStart(2, "0");
+      const year = dateStr.getFullYear();
       return `${day}.${month}.${year}`;
     }
 
     const raw = String(dateStr).trim();
 
-    // 1) Формат DD/MM/YY или D/M/YY (или с 4-значным годом)
     const slashMatch = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
     if (slashMatch) {
       let [, d, m, y] = slashMatch;
@@ -120,7 +115,6 @@ const formatDate = (dateStr) => {
       return `${day}.${month}.${year}`;
     }
 
-    // 2) Текстовый русский формат "4 Декабря 2024 г. 12:45"
     const months = {
       января: "01",
       февраля: "02",
@@ -145,7 +139,6 @@ const formatDate = (dateStr) => {
       return `${day}.${month}.${year}`;
     }
 
-    // 3) Excel-число (>40000)
     if (!isNaN(raw) && Number(raw) > 40000) {
       const excelDate = XLSX.SSF.parse_date_code(Number(raw));
       if (excelDate) {
@@ -156,16 +149,14 @@ const formatDate = (dateStr) => {
       }
     }
 
-    // 4) Fallback — обычный JS-парсинг строкового представления
     const dt = new Date(raw);
     if (!isNaN(dt)) {
-      const day = String(dt.getUTCDate()).padStart(2, "0");
-      const month = String(dt.getUTCMonth() + 1).padStart(2, "0");
-      const year = dt.getUTCFullYear();
+      const day = String(dt.getDate()).padStart(2, "0");
+      const month = String(dt.getMonth() + 1).padStart(2, "0");
+      const year = dt.getFullYear();
       return `${day}.${month}.${year}`;
     }
 
-    // Если ничего не подошло — вернём исходник
     return raw;
   } catch (err) {
     console.error("Date formatting error:", err);
@@ -196,9 +187,6 @@ const getCellValue = (worksheet, row, col) => {
   }
 };
 
-// Function to parse Excel/CSV data with correct column mapping and encoding
-// Function to parse Excel/CSV data with correct column mapping and encoding
-// Function to parse Excel/CSV data with correct column mapping and encoding
 const parseUploadedData = (filePath) => {
   try {
     const workbook = XLSX.readFile(filePath, {
@@ -211,14 +199,30 @@ const parseUploadedData = (filePath) => {
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
 
-    // Всегда стартуем с 0-й строки (Excel-строка 1)
-    // и до последней физически заполненной
     const fullRange = XLSX.utils.decode_range(worksheet["!ref"]);
-    const startRow = 0;
+    
+    // Check if first row contains headers by examining the content
+    const firstRowHasHeaders = (() => {
+      const firstRowValues = [];
+      for (let col = 0; col <= 4; col++) {
+        const value = getCellValue(worksheet, 0, col);
+        firstRowValues.push(String(value).toLowerCase());
+      }
+      
+      // If first row contains typical header words, skip it
+      const headerKeywords = ['источник', 'статус', 'дата', 'кто', 'оператор', 'source', 'status', 'date'];
+      return firstRowValues.some(val => 
+        headerKeywords.some(keyword => val.includes(keyword))
+      );
+    })();
+
+    const startRow = firstRowHasHeaders ? 1 : 0;
     const endRow = fullRange.e.r;
     const data = [];
 
-    console.log("Full sheet range:", fullRange, "→ reading rows 0…", endRow);
+    console.log("Full sheet range:", fullRange);
+    console.log("First row has headers:", firstRowHasHeaders);
+    console.log("Reading rows from", startRow, "to", endRow);
 
     for (let rowNum = startRow; rowNum <= endRow; rowNum++) {
       const row = {
@@ -230,12 +234,11 @@ const parseUploadedData = (filePath) => {
         })(),
         whoMeasured: getCellValue(worksheet, rowNum, 3) || "Не указано",
         operator: getCellValue(worksheet, rowNum, 4) || "Не указано",
-        id: rowNum, // просто физический номер строки
+        id: rowNum - startRow, // Adjust ID to start from 0
       };
 
-      // Лог первой и последней физической строки
-      if (rowNum === startRow) console.log("ROW 1 DATA →", row);
-      if (rowNum === endRow) console.log(`ROW ${endRow + 1} DATA →`, row);
+      if (rowNum === startRow) console.log("FIRST DATA ROW →", row);
+      if (rowNum === endRow) console.log(`LAST DATA ROW →`, row);
 
       data.push(row);
     }
