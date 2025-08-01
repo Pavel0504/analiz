@@ -153,6 +153,14 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout }) => {
     endDate: "2025-12-31",
   };
 
+  // Helper function to format date in local timezone
+  const formatDateLocal = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   // Update data when propData changes
   useEffect(() => {
     if (propData && propData.length > 0) {
@@ -1534,9 +1542,13 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout }) => {
                     type="date"
                     value={dateRange.startDate}
                     onChange={(e) => {
+                      e.stopPropagation();
                       updateComparison(currentComparisonIndex, {
                         dateRange: { ...dateRange, startDate: e.target.value },
                       });
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
                     }}
                     className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                   />
@@ -1549,9 +1561,13 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout }) => {
                     type="date"
                     value={dateRange.endDate}
                     onChange={(e) => {
+                      e.stopPropagation();
                       updateComparison(currentComparisonIndex, {
                         dateRange: { ...dateRange, endDate: e.target.value },
                       });
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
                     }}
                     className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                   />
@@ -1583,8 +1599,8 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout }) => {
                     );
                     updateComparison(currentComparisonIndex, {
                       dateRange: {
-                        startDate: firstOfMonth.toISOString().split("T")[0],
-                        endDate: lastOfMonth.toISOString().split("T")[0],
+                        startDate: formatDateLocal(firstOfMonth),
+                        endDate: formatDateLocal(lastOfMonth),
                       },
                     });
                   }}
