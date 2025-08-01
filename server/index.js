@@ -168,7 +168,7 @@ const parseUploadedData = (filePath) => {
     console.log('Processing Excel file with range:', range);
    
     // Skip row 1 (headers) and start from row 2
-    for (let rowNum = range.s.r + 1; rowNum <= range.e.r; rowNum++) {
+    for (let rowNum = range.s.r; rowNum <= range.e.r; rowNum++) {
       const row = {};
      
       // Column A - Источник (source) - index 1
@@ -192,7 +192,7 @@ const parseUploadedData = (filePath) => {
       row.operator = operatorValue || 'Не указано';
      
       // Add ID
-      row.id = rowNum - 1; // Start from 0 since we skip header row
+      row.id = rowNum - range.s.r; // Start from 0 since we skip header row
      
       // Only add row if it has some data
       if (row.source || row.status || row.operator) {
