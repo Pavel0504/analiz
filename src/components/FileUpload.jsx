@@ -188,18 +188,11 @@ const FileUpload = ({ onDataLoaded, isOpen, onClose }) => {
             <p className="font-medium mb-2">Ожидаемые колонки в файле:</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
               <div className="space-y-1">
-                <div>• <strong>Колонка B:</strong> Источник</div>
-                <div>• <strong>Колонка C:</strong> Статус</div>
-                <div>• <strong>Колонка D:</strong> Дата заявки</div>
-                <div>• <strong>Колонка E:</strong> Комментарий</div>
-                <div>• <strong>Колонка F:</strong> Дата следующего шага</div>
-              </div>
-              <div className="space-y-1">
-                <div>• <strong>Колонка I:</strong> Воронка продаж</div>
-                <div>• <strong>Колонка S:</strong> Время обработки (мин)</div>
-                <div>• <strong>Колонка T:</strong> Отметка об обработке</div>
-                <div>• <strong>Колонка U:</strong> Кто замерял</div>
-                <div>• <strong>Колонка Z:</strong> Оператор</div>
+                <div>• <strong>Колонка A:</strong> Источник</div>
+                <div>• <strong>Колонка B:</strong> Статус</div>
+                <div>• <strong>Колонка C:</strong> Дата заявки</div>
+                <div>• <strong>Колонка D:</strong> Кто замерял</div>
+                <div>• <strong>Колонка E:</strong> Оператор</div>
               </div>
             </div>
             <p className="text-xs text-gray-500 mt-2">

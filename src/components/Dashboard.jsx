@@ -7,11 +7,12 @@ import {
 import {
   Filter, Download, RefreshCw, TrendingUp, Users, Target,
   Calendar, Plus, Edit3, Trash2, BarChart3, Activity, Upload,
-  Settings, ChevronUp, ChevronDown, X, Check, LogOut, Copy,
-  Clock, ChevronLeft, ChevronRight, Archive
+  Settings, ChevronUp, ChevronDown, X, Check, LogOut,
+  Clock, ChevronLeft, ChevronRight
 } from 'lucide-react';
+import { API_BASE_URL } from '../config/api';
 
-const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => {
+const Dashboard = ({ data: propData, onShowUpload, onLogout }) => {
   const [data, setData] = useState(propData || []);
 
   // Comparison state
@@ -91,93 +92,6 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
   const [selectedFunnelStage, setSelectedFunnelStage] = useState(null);
   const [selectedSource, setSelectedSource] = useState(null);
 
-  // Storage utility functions
-  const getStorageSize = () => {
-    let total = 0;
-    for (let key in localStorage) {
-      if (localStorage.hasOwnProperty(key)) {
-        total += localStorage[key].length + key.length;
-      }
-    }
-    return total;
-  };
-
-  const cleanupOldBackups = () => {
-    try {
-      const backupHistory = JSON.parse(localStorage.getItem('backupHistory') || '[]');
-
-      // Remove old backup data files
-      const keysToRemove = [];
-      for (let key in localStorage) {
-        if (key.startsWith('backup_')) {
-          const backupId = key.replace('backup_', '');
-          const exists = backupHistory.some(backup => backup.id.toString() === backupId);
-          if (!exists) {
-            keysToRemove.push(key);
-          }
-        }
-      }
-      
-      keysToRemove.forEach(key => {
-        localStorage.removeItem(key);
-      });
-
-      // Keep only last 10 backups instead of 50
-      if (backupHistory.length > 10) {
-        const toRemove = backupHistory.slice(10);
-        toRemove.forEach(backup => {
-          localStorage.removeItem(`backup_${backup.id}`);
-        });
-        
-        const updatedHistory = backupHistory.slice(0, 10);
-        localStorage.setItem('backupHistory', JSON.stringify(updatedHistory));
-      }
-    } catch (error) {
-      console.error('Error cleaning up old backups:', error);
-    }
-  };
-
-  const safeSetItem = (key, value) => {
-    try {
-      // Check storage size before saving
-      const currentSize = getStorageSize();
-      const newDataSize = JSON.stringify(value).length;
-
-      // If storage is getting full (>4MB), cleanup old data
-      if (currentSize + newDataSize > 4 * 1024 * 1024) {
-        cleanupOldBackups();
-      }
-      
-      localStorage.setItem(key, JSON.stringify(value));
-      return true;
-    } catch (error) {
-      if (error.name === 'QuotaExceededError') {
-        console.warn('Storage quota exceeded, attempting cleanup...');
-        
-        // Emergency cleanup
-        cleanupOldBackups();
-        
-        // Try to remove some old data
-        const keysToCheck = ['parseData', 'backupHistory'];
-        for (const keyToCheck of keysToCheck) {
-          try {
-            localStorage.removeItem(keyToCheck);
-            localStorage.setItem(key, JSON.stringify(value));
-            return true;
-          } catch (retryError) {
-            continue;
-          }
-        }
-        
-        console.error('Unable to save data due to storage limitations');
-        alert('Хранилище переполнено. Некоторые данные могут не сохраниться. Рекомендуется создать резервную копию и очистить старые данные.');
-        return false;
-      }
-      console.error('Error saving to localStorage:', error);
-      return false;
-    }
-  };
-
   // Get current comparison
   const currentComparison = comparisons[currentComparisonIndex];
   const filters = currentComparison?.filters || {
@@ -195,124 +109,28 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
   useEffect(() => {
     if (propData && propData.length > 0) {
       setData(propData);
-      // Save data with error handling
-      safeSetItem('dashboardData', propData);
-      // Save backup when data changes
-      saveDataBackup(propData, 'data_update');
     }
   }, [propData]);
 
-  // Load data from localStorage on component mount
+  // Load expenses from API on component mount
   useEffect(() => {
-    const loadData = () => {
+    const loadExpenses = async () => {
       try {
-        const savedData = localStorage.getItem('dashboardData');
-        if (savedData && (!propData || propData.length === 0)) {
-          const parsedData = JSON.parse(savedData);
-          setData(parsedData);
-        }
-      } catch (error) {
-        console.error('Error loading data:', error);
-      }
-    };
-
-    const loadExpenses = () => {
-      try {
-        const savedExpenses = localStorage.getItem('expenses');
-        if (savedExpenses) {
-          const parsedExpenses = JSON.parse(savedExpenses);
-          setExpenses(parsedExpenses);
+        const response = await fetch(`${API_BASE_URL}/api/expenses`, {
+          headers: {
+            'ngrok-skip-browser-warning': 'true'
+          }
+        });
+        if (response.ok) {
+          const expensesData = await response.json();
+          setExpenses(expensesData);
         }
       } catch (error) {
         console.error('Error loading expenses:', error);
       }
     };
 
-    loadData();
     loadExpenses();
-  }, [propData]);
-
-  // Backup system functions
-  const saveDataBackup = useCallback((newData, action = 'manual') => {
-    try {
-      const currentExpenses = JSON.parse(localStorage.getItem('expenses') || '[]');
-      const currentParseData = JSON.parse(localStorage.getItem('parseData') || '[]');
-
-      const backupEntry = {
-        id: Date.now(),
-        timestamp: new Date().toISOString(),
-        action: action,
-        data: {
-          dashboardData: newData || data,
-          expenses: currentExpenses,
-          parseData: currentParseData
-        },
-        summary: {
-          dashboardRecords: (newData || data).length,
-          expenseRecords: currentExpenses.length,
-          parseRecords: currentParseData.length,
-          totalSize: JSON.stringify({
-            dashboardData: newData || data,
-            expenses: currentExpenses,
-            parseData: currentParseData
-          }).length
-        }
-      };
-
-      // Save backup data with error handling
-      const backupSaved = safeSetItem(`backup_${backupEntry.id}`, backupEntry.data);
-      
-      if (backupSaved) {
-        // Update backup history
-        const backupHistory = JSON.parse(localStorage.getItem('backupHistory') || '[]');
-        const updatedHistory = [backupEntry, ...backupHistory].slice(0, 10); // Keep only 10 backups
-        safeSetItem('backupHistory', updatedHistory);
-        console.log('Backup saved:', backupEntry.id);
-      }
-    } catch (error) {
-      console.error('Error saving backup:', error);
-    }
-  }, [data]);
-
-  const saveExpenseBackup = useCallback((newExpenses, action = 'expense_update') => {
-    try {
-      const currentData = JSON.parse(localStorage.getItem('dashboardData') || '[]');
-      const currentParseData = JSON.parse(localStorage.getItem('parseData') || '[]');
-
-      const backupEntry = {
-        id: Date.now(),
-        timestamp: new Date().toISOString(),
-        action: action,
-        data: {
-          dashboardData: currentData,
-          expenses: newExpenses,
-          parseData: currentParseData
-        },
-        summary: {
-          dashboardRecords: currentData.length,
-          expenseRecords: newExpenses.length,
-          parseRecords: currentParseData.length,
-          totalSize: JSON.stringify({
-            dashboardData: currentData,
-            expenses: newExpenses,
-            parseData: currentParseData
-          }).length
-        }
-      };
-
-      // Save backup data with error handling
-      const backupSaved = safeSetItem(`backup_${backupEntry.id}`, backupEntry.data);
-      
-      if (backupSaved) {
-        // Update backup history
-        const backupHistory = JSON.parse(localStorage.getItem('backupHistory') || '[]');
-        const updatedHistory = [backupEntry, ...backupHistory].slice(0, 10);
-        safeSetItem('backupHistory', updatedHistory);
-        console.log('Expense backup saved:', backupEntry.id);
-      }
-    } catch (error) {
-      console.error('Error saving expense backup:', error);
-    }
   }, []);
 
   // Comparison management functions
@@ -375,9 +193,9 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
     setLayoutOrder(tempLayoutOrder);
     setFilterOrder(tempFilterOrder);
     setMetricsOrder(tempMetricsOrder);
-    safeSetItem('dashboardLayout', tempLayoutOrder);
-    safeSetItem('dashboardFilterOrder', tempFilterOrder);
-    safeSetItem('dashboardMetricsOrder', tempMetricsOrder);
+    localStorage.setItem('dashboardLayout', JSON.stringify(tempLayoutOrder));
+    localStorage.setItem('dashboardFilterOrder', JSON.stringify(tempFilterOrder));
+    localStorage.setItem('dashboardMetricsOrder', JSON.stringify(tempMetricsOrder));
     setIsLayoutMode(false);
   };
 
@@ -444,12 +262,11 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
     }
   };
 
-  // Expense management functions
+  // Expense management functions - using API instead of localStorage
   const addExpense = useCallback(async () => {
     if (!expenseForm.amount || !expenseForm.description || !expenseForm.source) return;
 
     const newExpense = {
-      id: Date.now(),
       startDate: expenseForm.startDate,
       endDate: expenseForm.endDate,
       source: expenseForm.source,
@@ -457,16 +274,19 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
       description: expenseForm.description
     };
 
-    const updatedExpenses = [...expenses, newExpense];
-
     try {
-      // Save to localStorage with error handling
-      const saved = safeSetItem('expenses', updatedExpenses);
-      if (saved) {
-        setExpenses(updatedExpenses);
-        
-        // Save backup
-        saveExpenseBackup(updatedExpenses, 'expense_added');
+      const response = await fetch(`${API_BASE_URL}/api/expenses`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true'
+        },
+        body: JSON.stringify(newExpense)
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setExpenses(prev => [...prev, result.expense]);
         
         setExpenseForm({
           startDate: new Date().toISOString().split('T')[0],
@@ -476,54 +296,72 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
           description: ''
         });
         setShowExpenseForm(false);
+      } else {
+        const error = await response.json();
+        console.error('Error adding expense:', error);
       }
     } catch (error) {
       console.error('Error adding expense:', error);
     }
-  }, [expenseForm, expenses, saveExpenseBackup]);
+  }, [expenseForm]);
 
   const updateExpense = useCallback(async () => {
     if (!expenseForm.amount || !expenseForm.description || !expenseForm.source) return;
 
-    const updatedExpenses = expenses.map(expense =>
-      expense.id === editingExpense.id
-        ? { ...expense, ...expenseForm, amount: parseFloat(expenseForm.amount) }
-        : expense
-    );
+    const updatedExpense = {
+      startDate: expenseForm.startDate,
+      endDate: expenseForm.endDate,
+      source: expenseForm.source,
+      amount: parseFloat(expenseForm.amount),
+      description: expenseForm.description
+    };
 
     try {
-      // Save to localStorage with error handling
-      const saved = safeSetItem('expenses', updatedExpenses);
-      if (saved) {
-        setExpenses(updatedExpenses);
-        
-        // Save backup
-        saveExpenseBackup(updatedExpenses, 'expense_updated');
+      const response = await fetch(`${API_BASE_URL}/api/expenses/${editingExpense.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true'
+        },
+        body: JSON.stringify(updatedExpense)
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setExpenses(prev => prev.map(expense => 
+          expense.id === editingExpense.id ? result.expense : expense
+        ));
         
         setEditingExpense(null);
         setShowExpenseForm(false);
+      } else {
+        const error = await response.json();
+        console.error('Error updating expense:', error);
       }
     } catch (error) {
       console.error('Error updating expense:', error);
     }
-  }, [expenseForm, editingExpense, expenses, saveExpenseBackup]);
+  }, [expenseForm, editingExpense]);
 
   const deleteExpense = useCallback(async (id) => {
-    const updatedExpenses = expenses.filter(expense => expense.id !== id);
-
     try {
-      // Save to localStorage with error handling
-      const saved = safeSetItem('expenses', updatedExpenses);
-      if (saved) {
-        setExpenses(updatedExpenses);
-        
-        // Save backup
-        saveExpenseBackup(updatedExpenses, 'expense_deleted');
+      const response = await fetch(`${API_BASE_URL}/api/expenses/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'ngrok-skip-browser-warning': 'true'
+        }
+      });
+
+      if (response.ok) {
+        setExpenses(prev => prev.filter(expense => expense.id !== id));
+      } else {
+        const error = await response.json();
+        console.error('Error deleting expense:', error);
       }
     } catch (error) {
       console.error('Error deleting expense:', error);
     }
-  }, [expenses, saveExpenseBackup]);
+  }, []);
 
   const startEditExpense = useCallback((expense) => {
     setEditingExpense(expense);
@@ -542,12 +380,10 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
     if (data.length === 0) {
       return {
         startDate: '2024-01-01',
-        // тут возвращаем сегодня
         endDate: new Date().toISOString().split('T')[0]
       };
     }
 
-    // Вычисляем самую раннюю дату, как раньше
     const validDates = data
       .map(item => parseDate(item.applicationDate))
       .filter(d => d)
@@ -561,7 +397,6 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
     }
 
     const earliestDate = validDates[0];
-    // Форматируем сегодняшнюю дату:
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -583,10 +418,7 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
 
   // Apply date filter function
   const applyDateFilter = useCallback(() => {
-    // Force re-calculation of filtered data
     console.log('Применение фильтра по датам:', dateRange);
-
-    // This will trigger re-calculation of filteredData through useMemo dependency
     updateComparison(currentComparisonIndex, { 
       dateRange: { ...dateRange }
     });
@@ -615,7 +447,6 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
         const year  = Number(yearStr);
         if (month != null) {
           const d = new Date(year, month, day);
-          // Обнуляем время — оставляем полночь
           d.setHours(0, 0, 0, 0);
           return d;
         }
@@ -639,7 +470,6 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
         return d;
       }
 
-      // Если ни один формат не подошёл — возвращаем null
       return null;
     } catch (e) {
       console.error('Date parsing error:', dateStr, e);
@@ -670,11 +500,9 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
       const startDate = new Date(comparisonDateRange.startDate);
       startDate.setHours(0, 0, 0, 0);
       
-      // Создаём конец дня для endDate (23:59:59.999)
       const endDate = new Date(comparisonDateRange.endDate);
       endDate.setHours(23, 59, 59, 999);
 
-      // Включаем все от startDate (00:00) до endDate (23:59:59.999)
       if (itemDate < startDate || itemDate > endDate) {
         console.log(
           'Filtered out by date:',
@@ -685,7 +513,6 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
         return false;
       }
 
-      // остальные фильтры
       const sourceMatch = !comparisonFilters.sources.length || comparisonFilters.sources.includes(item.source);
       const operatorMatch = !comparisonFilters.operators.length || comparisonFilters.operators.includes(item.operator);
       const statusMatch = !comparisonFilters.statuses.length || comparisonFilters.statuses.includes(item.status);
@@ -714,7 +541,6 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
       if (!dateMatch) return false;
 
       // Проверяем фильтр по источникам
-      // Если источники не выбраны (показываем все) или выбран источник расхода
       const sourceMatch = !filters.sources.length || filters.sources.includes(expense.source);
       
       return sourceMatch;
@@ -750,7 +576,6 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
   const getFunnelData = useCallback((comparisonData, comparisonBudget) => {
     const total = comparisonData.length;
     
-    // Назначен замер: все статусы содержащие "Замер", "Договор", "Дожать (был замер)"
     const measurements = comparisonData.filter(item => {
       if (!item.status) return false;
       const status = item.status.toLowerCase();
@@ -851,7 +676,6 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
   const getMetrics = useCallback((comparisonData, comparisonBudget) => {
     const total = comparisonData.length;
     
-    // Назначен замер: все статусы содержащие "Замер", "Договор", "Дожать (был замер)"
     const measurements = comparisonData.filter(item => {
       if (!item.status) return false;
       const status = item.status.toLowerCase();
@@ -862,7 +686,6 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
     
     const contracts = comparisonData.filter(item => item.status === 'Договор').length;
 
-    // В работе: 👍Созвон до замера ВАЖНО, ❓Созвон до замера, недозвон, Замер, Дожать (был замер)
     const inProgressItems = comparisonData.filter(item => {
       if (!item.status) return false;
       const status = item.status.toLowerCase();
@@ -875,7 +698,6 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
 
     const inProgress = inProgressItems.length;
     
-    // Детализация "В работе" для расширенной информации
     const callBeforeMeasurement = comparisonData.filter(item => 
       item.status && item.status.includes('❓Созвон до замера')
     ).length;
@@ -891,7 +713,6 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
     const measurementInProgress = comparisonData.filter(item => {
       if (!item.status) return false;
       const status = item.status.toLowerCase();
-      // Замер, но не "Дожать (был замер)" - это отдельная категория
       return status.includes('замер') && !status.includes('дожать (был замер)');
     }).length;
 
@@ -918,7 +739,6 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
       conversionRate,
       costPerLead,
       roi,
-      // Детализация "В работе"
       callBeforeMeasurement,
       callBeforeMeasurementImportant,
       pushAfterMeasurement,
@@ -1306,7 +1126,7 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
 
         {/* Mobile Menu */}
         <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 sm:hidden z-50">
-          <div className="grid grid-cols-6 gap-1 p-2">
+          <div className="grid grid-cols-4 gap-1 p-2">
             <button className="flex flex-col items-center gap-1 p-2 text-blue-500">
               <TrendingUp className="w-5 h-5" />
               <span className="text-xs">Главная</span>
@@ -1332,28 +1152,6 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
             >
               <Plus className="w-5 h-5" />
               <span className="text-xs">Расход</span>
-            </button>
-            <button 
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onShowBackup();
-              }}
-              className="flex flex-col items-center gap-1 p-2 text-gray-600 dark:text-gray-400"
-            >
-              <Archive className="w-5 h-5" />
-              <span className="text-xs">Бэкап</span>
-            </button>
-            <button 
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                handleLayoutModeToggle();
-              }}
-              className="flex flex-col items-center gap-1 p-2 text-gray-600 dark:text-gray-400"
-            >
-              <Settings className="w-5 h-5" />
-              <span className="text-xs">Настройки</span>
             </button>
             <button 
               onClick={(e) => {
@@ -1403,17 +1201,6 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
                   <Plus className="w-4 h-4" />
                   <span className="hidden sm:inline">Добавить расход</span>
                   <span className="sm:hidden">Расход</span>
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    onShowBackup();
-                  }}
-                  className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-all duration-200 hover:scale-105 shadow-md text-sm"
-                >
-                  <Archive className="w-4 h-4" />
-                  <span className="hidden sm:inline">Бэкап</span>
                 </button>
                 <button
                   onClick={(e) => {
@@ -1747,26 +1534,7 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
                   </div>
                 </div>
               </div>
-            ) : (
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-gray-700 dark:text-gray-300">
-                    Основной анализ
-                  </h3>
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      addComparison();
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-all duration-200 hover:scale-105 shadow-md text-sm"
-                  >
-                    <Copy className="w-4 h-4" />
-                    Сравнить
-                  </button>
-                </div>
-              </div>
-            )}
+            ) : null}
           </LayoutBlock>
         );
 
@@ -2220,7 +1988,7 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
 
         {/* Mobile Menu */}
         <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 sm:hidden z-50">
-          <div className="grid grid-cols-6 gap-1 p-2">
+          <div className="grid grid-cols-4 gap-1 p-2">
             <button className="flex flex-col items-center gap-1 p-2 text-blue-500">
               <TrendingUp className="w-5 h-5" />
               <span className="text-xs">Главная</span>
@@ -2246,28 +2014,6 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout, onShowBackup }) => 
             >
               <Plus className="w-5 h-5" />
               <span className="text-xs">Расход</span>
-            </button>
-            <button 
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onShowBackup();
-              }}
-              className="flex flex-col items-center gap-1 p-2 text-gray-600 dark:text-gray-400"
-            >
-              <Archive className="w-5 h-5" />
-              <span className="text-xs">Бэкап</span>
-            </button>
-            <button 
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                handleLayoutModeToggle();
-              }}
-              className="flex flex-col items-center gap-1 p-2 text-gray-600 dark:text-gray-400"
-            >
-              <Settings className="w-5 h-5" />
-              <span className="text-xs">Настройки</span>
             </button>
             <button 
               onClick={(e) => {

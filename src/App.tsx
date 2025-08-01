@@ -2,15 +2,14 @@ import React, { useState, useEffect } from 'react';
 import Dashboard from './components/Dashboard';
 import FileUpload from './components/FileUpload';
 import LoginPage from './components/LoginPage';
-import BackupPage from './components/BackupPage';
 import ThemeToggle from './components/ThemeToggle';
+import { API_BASE_URL } from './config/api';
 
 function App() {
   const [data, setData] = useState([]);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [currentPage, setCurrentPage] = useState('dashboard');
 
   // Check authentication on mount
   useEffect(() => {
@@ -20,11 +19,34 @@ function App() {
     }
   }, []);
 
+  // Load data from API when authenticated
+  useEffect(() => {
+    const loadData = async () => {
+      if (!isAuthenticated) return;
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/data`, {
+          headers: {
+            'ngrok-skip-browser-warning': 'true'
+          }
+        });
+        if (response.ok) {
+          const apiData = await response.json();
+          setData(apiData);
+        }
+      } catch (error) {
+        console.error('Error loading data:', error);
+      }
+    };
+
+    loadData();
+  }, [isAuthenticated]);
+
   // Check theme preference on mount
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    
+   
     if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
       setIsDarkMode(true);
       document.documentElement.classList.add('dark');
@@ -39,13 +61,12 @@ function App() {
   const handleLogout = () => {
     setIsAuthenticated(false);
     localStorage.removeItem('isAuthenticated');
-    setCurrentPage('dashboard');
   };
 
   const handleThemeToggle = () => {
     const newTheme = !isDarkMode;
     setIsDarkMode(newTheme);
-    
+   
     if (newTheme) {
       document.documentElement.classList.add('dark');
       localStorage.setItem('theme', 'dark');
@@ -59,14 +80,6 @@ function App() {
     setData(newData);
   };
 
-  const handleShowBackup = () => {
-    setCurrentPage('backup');
-  };
-
-  const handleBackToDashboard = () => {
-    setCurrentPage('dashboard');
-  };
-
   if (!isAuthenticated) {
     return <LoginPage onLogin={handleLogin} />;
   }
@@ -78,26 +91,17 @@ function App() {
         <div className="fixed top-4 right-4 z-50">
           <ThemeToggle isDark={isDarkMode} onToggle={handleThemeToggle} />
         </div>
-        
-        {currentPage === 'dashboard' && (
-          <>
-            <Dashboard 
-              data={data} 
-              onShowUpload={() => setShowUploadModal(true)}
-              onLogout={handleLogout}
-              onShowBackup={handleShowBackup}
-            />
-            <FileUpload 
-              onDataLoaded={handleDataLoad}
-              isOpen={showUploadModal}
-              onClose={() => setShowUploadModal(false)}
-            />
-          </>
-        )}
-        
-        {currentPage === 'backup' && (
-          <BackupPage onBack={handleBackToDashboard} />
-        )}
+       
+        <Dashboard
+          data={data}
+          onShowUpload={() => setShowUploadModal(true)}
+          onLogout={handleLogout}
+        />
+        <FileUpload
+          onDataLoaded={handleDataLoad}
+          isOpen={showUploadModal}
+          onClose={() => setShowUploadModal(false)}
+        />
       </div>
     </div>
   );
