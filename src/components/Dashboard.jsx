@@ -1533,12 +1533,13 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout }) => {
                   <input
                     type="date"
                     value={dateRange.startDate}
-                    onChange={(e) =>
-                      setExpenseForm((prev) => ({
-                        ...prev,
-                        startDate: e.target.value,
-                      }))
-                    }
+                    onChange={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      updateComparison(currentComparisonIndex, {
+                        dateRange: { ...dateRange, startDate: e.target.value },
+                      });
+                    }}
                     className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                   />
                 </div>
@@ -1549,12 +1550,13 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout }) => {
                   <input
                     type="date"
                     value={dateRange.endDate}
-                    onChange={(e) =>
-                      setExpenseForm((prev) => ({
-                        ...prev,
-                        endDate: e.target.value,
-                      }))
-                    }
+                    onChange={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      updateComparison(currentComparisonIndex, {
+                        dateRange: { ...dateRange, endDate: e.target.value },
+                      });
+                    }}
                     className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                   />
                 </div>
