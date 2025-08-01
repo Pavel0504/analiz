@@ -61,15 +61,27 @@ const FileUpload = ({ onDataLoaded, isOpen, onClose }) => {
         setSuccess(`Успешно загружено ${result.count} записей`);
         onDataLoaded(result.data);
 
+        // DEBUG: alert со списком первых 10 записей
         if (result.data.length > 0) {
-          const first = JSON.stringify(result.data[0], null, 2);
-          const last = JSON.stringify(
-            result.data[result.data.length - 1],
-            null,
-            2
-          );
+          // Возьмём первые 10 (или меньше, если записей меньше)
+          const preview = result.data.slice(0, 10);
+          // Соберём текст: нумеруем и форматируем каждую запись
+          const text = preview
+            .map((row, idx) => {
+              return (
+                `${idx + 1}.\n` +
+                `  Источник: ${row.source}\n` +
+                `  Статус: ${row.status}\n` +
+                `  Дата: ${row.applicationDate}\n` +
+                `  Кто замерял: ${row.whoMeasured}\n` +
+                `  Оператор: ${row.operator}\n` +
+                `  ID: ${row.id}`
+              );
+            })
+            .join("\n\n");
+
           alert(
-            `Парсинг завершён!\n\nПервая запись:\n${first}\n\nПоследняя запись:\n${last}`
+            `Парсинг завершён! Первые ${preview.length} записей:\n\n${text}`
           );
         }
 
