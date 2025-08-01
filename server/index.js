@@ -201,14 +201,16 @@ const parseUploadedData = (filePath) => {
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
 
-    // Get the range of the worksheet
-    const range = XLSX.utils.decode_range(worksheet["!ref"]);
+    // Determine full range of the sheet
+    const fullRange = XLSX.utils.decode_range(worksheet["!ref"]);
+    const startRow = 0; // Всегда с физической первой строки
+    const endRow = fullRange.e.r; // До последней заполненной строки
     const data = [];
 
-    console.log("Processing Excel file with range:", range);
+    console.log("Processing Excel file with full range:", fullRange);
 
-    // Iterate all rows in the range (including header if you wish)
-    for (let rowNum = range.s.r; rowNum <= range.e.r; rowNum++) {
+    // Проходим по всем строкам от 0 до endRow
+    for (let rowNum = startRow; rowNum <= endRow; rowNum++) {
       const row = {};
 
       // Column A - Источник (source) - index 0
@@ -233,31 +235,27 @@ const parseUploadedData = (filePath) => {
       const operatorValue = getCellValue(worksheet, rowNum, 4);
       row.operator = operatorValue || "Не указано";
 
-      // Add ID relative to the start of the range
-      row.id = rowNum - range.s.r;
+      // Add ID relative to the startRow
+      row.id = rowNum - startRow;
 
-      // Log the raw first and last rows
-      if (rowNum === range.s.r) {
-        console.log("--- FIRST ROW RAW DATA ---");
-        console.log(`rowNum = ${rowNum}`, row);
+      // Log raw first and last rows
+      if (rowNum === startRow) {
+        console.log("--- FIRST ROW RAW DATA ---", row);
       }
-      if (rowNum === range.e.r) {
-        console.log("--- LAST ROW RAW DATA ---");
-        console.log(`rowNum = ${rowNum}`, row);
+      if (rowNum === endRow) {
+        console.log("--- LAST ROW RAW DATA ---", row);
       }
 
-      // Only add row if it has any of the key fields
-      if (row.source || row.status || row.operator) {
-        data.push(row);
-      }
+      // Всегда добавляем строку, даже если все поля были пусты
+      data.push(row);
     }
 
-    console.log(`Parsed ${data.length} valid rows successfully`);
+    console.log(`Parsed ${data.length} rows successfully`);
 
-    // If you want to log the first and last filtered entries:
+    // Log first and last entries after parsing
     if (data.length > 0) {
-      console.log("=== FIRST FILTERED ENTRY ===", data[0]);
-      console.log("=== LAST FILTERED ENTRY ===", data[data.length - 1]);
+      console.log("=== FIRST ENTRY ===", data[0]);
+      console.log("=== LAST ENTRY ===", data[data.length - 1]);
     }
 
     return data;
