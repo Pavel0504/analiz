@@ -419,12 +419,12 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout }) => {
   // Apply date filter function
   const applyDateFilter = useCallback(() => {
     console.log('Применение фильтра по датам:', dateRange);
-    updateComparison(currentComparisonIndex, { 
+    updateComparison(currentComparisonIndex, {
       dateRange: { ...dateRange }
     });
   }, [dateRange, currentComparisonIndex]);
 
-  // Улучшенная функция парсинга даты
+  // Исправленная функция парсинга даты
   const parseDate = (dateStr) => {
     if (!dateStr || dateStr === 'Не указано' || dateStr.trim() === '') {
       return null;
@@ -575,7 +575,7 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout }) => {
   // Calculate funnel data based on image logic
   const getFunnelData = useCallback((comparisonData, comparisonBudget) => {
     const total = comparisonData.length;
-    
+
     const measurements = comparisonData.filter(item => {
       if (!item.status) return false;
       const status = item.status.toLowerCase();
@@ -583,7 +583,7 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout }) => {
              status.includes('договор') || 
              status.includes('дожать (был замер)');
     }).length;
-    
+
     const contracts = comparisonData.filter(item => item.status === 'Договор').length;
 
     // Calculate cost per lead for each stage
@@ -675,7 +675,7 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout }) => {
 
   const getMetrics = useCallback((comparisonData, comparisonBudget) => {
     const total = comparisonData.length;
-    
+
     const measurements = comparisonData.filter(item => {
       if (!item.status) return false;
       const status = item.status.toLowerCase();
@@ -683,7 +683,7 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout }) => {
              status.includes('договор') || 
              status.includes('дожать (был замер)');
     }).length;
-    
+
     const contracts = comparisonData.filter(item => item.status === 'Договор').length;
 
     const inProgressItems = comparisonData.filter(item => {
@@ -697,7 +697,7 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout }) => {
     });
 
     const inProgress = inProgressItems.length;
-    
+
     const callBeforeMeasurement = comparisonData.filter(item => 
       item.status && item.status.includes('❓Созвон до замера')
     ).length;
@@ -790,54 +790,6 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout }) => {
       ...prev,
       [metricId]: !prev[metricId]
     }));
-  };
-
-  // Date input formatting helper
-  const formatDateForInput = (dateStr) => {
-    if (!dateStr) return '';
-    // Convert DD.MM.YYYY to YYYY-MM-DD
-    const match = dateStr.match(/(\d{2})\.(\d{2})\.(\d{4})/);
-    if (match) {
-      const [, day, month, year] = match;
-      return `${year}-${month}-${day}`;
-    }
-    return dateStr;
-  };
-
-  const parseDateFromInput = (inputValue) => {
-    if (!inputValue) return '';
-    // Convert YYYY-MM-DD to DD.MM.YYYY
-    const match = inputValue.match(/(\d{4})-(\d{2})-(\d{2})/);
-    if (match) {
-      const [, year, month, day] = match;
-      return `${day}.${month}.${year}`;
-    }
-    return inputValue;
-  };
-
-  // Date input component
-  const DateInput = ({ value, onChange, placeholder, className = "" }) => {
-    const [inputValue, setInputValue] = useState(formatDateForInput(value));
-    
-    useEffect(() => {
-      setInputValue(formatDateForInput(value));
-    }, [value]);
-
-    const handleInputChange = (e) => {
-      const newValue = e.target.value;
-      setInputValue(newValue);
-      onChange(newValue);
-    };
-
-    return (
-      <input
-        type="date"
-        value={inputValue}
-        onChange={handleInputChange}
-        placeholder={placeholder}
-        className={`px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ${className}`}
-      />
-    );
   };
 
   // Block wrapper component with arrow controls
@@ -1340,24 +1292,34 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout }) => {
               <div className="flex flex-col sm:flex-row flex-wrap gap-4 items-start sm:items-center">
                 <div className="flex items-center gap-2">
                   <label className="text-sm font-medium text-gray-600 dark:text-gray-400">С:</label>
-                  <DateInput
+                  <input
+                    type="text"
                     value={dateRange.startDate}
-                    onChange={(value) => {
+                    onChange={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
                       updateComparison(currentComparisonIndex, { 
-                        dateRange: { ...dateRange, startDate: value }
+                        dateRange: { ...dateRange, startDate: e.target.value }
                       });
                     }}
+                    placeholder="ГГГГ-ММ-ДД"
+                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                   />
                 </div>
                 <div className="flex items-center gap-2">
                   <label className="text-sm font-medium text-gray-600 dark:text-gray-400">По:</label>
-                  <DateInput
+                  <input
+                    type="text"
                     value={dateRange.endDate}
-                    onChange={(value) => {
+                    onChange={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
                       updateComparison(currentComparisonIndex, { 
-                        dateRange: { ...dateRange, endDate: value }
+                        dateRange: { ...dateRange, endDate: e.target.value }
                       });
                     }}
+                    placeholder="ГГГГ-ММ-ДД"
+                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                   />
                 </div>
                 <button
@@ -1375,10 +1337,10 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout }) => {
                     e.preventDefault();
                     e.stopPropagation();
                     const today = new Date();
-                    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+                    const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
                     updateComparison(currentComparisonIndex, {
                       dateRange: {
-                        startDate: firstDayOfMonth.toISOString().split('T')[0],
+                        startDate: firstOfMonth.toISOString().split('T')[0],
                         endDate: today.toISOString().split('T')[0]
                       }
                     });

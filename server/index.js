@@ -112,7 +112,7 @@ const formatDate = (dateStr) => {
       const day = d.padStart(2, "0");
       const month = m.padStart(2, "0");
       const year = y.length === 2 ? `20${y}` : y;
-      
+
       return `${day}.${month}.${year}`;
     }
 
@@ -133,11 +133,11 @@ const formatDate = (dateStr) => {
     const normalized = raw.replace(/\s+/g, " ").replace(/г\./i, "").trim();
     const textMatch = normalized.match(/^(\d{1,2})\s+([А-Яа-я]+)\s+(\d{4})/);
     if (textMatch) {
-      const day = textMatch[1].padStart(2, "0");
+      const day = String(parseInt(textMatch[1])).padStart(2, "0");
       const monthName = textMatch[2].toLowerCase();
       const year = textMatch[3];
       const month = months[monthName] || "01";
-      
+
       return `${day}.${month}.${year}`;
     }
 
@@ -147,7 +147,7 @@ const formatDate = (dateStr) => {
         const day = String(excelDate.d).padStart(2, "0");
         const month = String(excelDate.m).padStart(2, "0");
         const year = excelDate.y;
-        
+
         return `${day}.${month}.${year}`;
       }
     }
@@ -211,7 +211,12 @@ const parseUploadedData = (filePath) => {
     console.log("Full sheet range:", fullRange, "→ reading rows 0…", endRow);
 
     // Сначала собираем сырые данные для отладки
-    for (let rowNum = startRow; rowNum <= Math.min(endRow, startRow + 9); rowNum++) { // Первые 10 строк для отладки
+    for (
+      let rowNum = startRow;
+      rowNum <= Math.min(endRow, startRow + 9);
+      rowNum++
+    ) {
+      // Первые 10 строк для отладки
       const rawRow = {
         row: rowNum,
         col0: getCellValue(worksheet, rowNum, 0),
@@ -224,8 +229,10 @@ const parseUploadedData = (filePath) => {
     }
 
     console.log("RAW DATA FROM EXCEL (first 10 rows):");
-    rawData.forEach(row => {
-      console.log(`Row ${row.row}: [${row.col0}] [${row.col1}] [${row.col2}] [${row.col3}] [${row.col4}]`);
+    rawData.forEach((row) => {
+      console.log(
+        `Row ${row.row}: [${row.col0}] [${row.col1}] [${row.col2}] [${row.col3}] [${row.col4}]`
+      );
     });
 
     // Теперь парсим все данные
@@ -236,7 +243,26 @@ const parseUploadedData = (filePath) => {
         applicationDate: (() => {
           const v = getCellValue(worksheet, rowNum, 2);
           console.log(`Row ${rowNum}, Col 2 raw value:`, v, typeof v);
-          return v ? formatDate(v) : "Не указано";
+          const formattedDate = v ? formatDate(v) : "Не указано";
+
+          // Добавляем один день после форматирования для корректного отображения
+          if (formattedDate !== "Не указано") {
+            const [day, month, year] = formattedDate.split(".");
+            const date = new Date(
+              parseInt(year),
+              parseInt(month) - 1,
+              parseInt(day)
+            );
+            date.setDate(date.getDate() + 1);
+
+            const newDay = String(date.getDate()).padStart(2, "0");
+            const newMonth = String(date.getMonth() + 1).padStart(2, "0");
+            const newYear = date.getFullYear();
+
+            return `${newDay}.${newMonth}.${newYear}`;
+          }
+
+          return formattedDate;
         })(),
         whoMeasured: getCellValue(worksheet, rowNum, 3) || "Не указано",
         operator: getCellValue(worksheet, rowNum, 4) || "Не указано",
