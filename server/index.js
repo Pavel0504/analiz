@@ -239,7 +239,7 @@ const parseUploadedData = (filePath) => {
     console.log("Full sheet range:", fullRange, "→ reading rows 0…", endRow);
 
     // Сначала собираем сырые данные для отладки
-    for (let rowNum = startRow; rowNum <= Math.min(endRow, 9); rowNum++) { // Первые 10 строк для отладки
+    for (let rowNum = startRow; rowNum <= Math.min(endRow, startRow + 9); rowNum++) { // Первые 10 строк для отладки
       const rawRow = {
         row: rowNum,
         col0: getCellValue(worksheet, rowNum, 0),
@@ -268,7 +268,7 @@ const parseUploadedData = (filePath) => {
         })(),
         whoMeasured: getCellValue(worksheet, rowNum, 3) || "Не указано",
         operator: getCellValue(worksheet, rowNum, 4) || "Не указано",
-        id: rowNum,
+        id: rowNum - startRow,
       };
 
       if (rowNum === startRow) console.log("FIRST DATA ROW →", row);
@@ -327,6 +327,8 @@ app.post("/api/upload", upload.single("file"), (req, res) => {
     const result = parseUploadedData(req.file.path);
     const parsedData = result.data;
     const rawData = result.rawData;
+    const parsedData = result.data;
+    const rawData = result.rawData;
 
     // Replace all data in JSON file with proper UTF-8 encoding
     fs.writeFileSync(dataFilePath, JSON.stringify(parsedData, null, 2), "utf8");
@@ -340,6 +342,7 @@ app.post("/api/upload", upload.single("file"), (req, res) => {
       message: "Данные успешно загружены",
       count: parsedData.length,
       data: parsedData,
+      rawData: rawData, // Добавляем сырые данные для отладки
       rawData: rawData, // Добавляем сырые данные для отладки
     });
   } catch (error) {
