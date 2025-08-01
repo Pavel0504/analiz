@@ -61,8 +61,16 @@ const FileUpload = ({ onDataLoaded, isOpen, onClose }) => {
         setSuccess(`Успешно загружено ${result.count} записей`);
         onDataLoaded(result.data);
 
-        // DEBUG: alert со списком первых 10 записей
         if (result.data.length > 0) {
+          // Показываем сырые данные из Excel
+          let debugText = "=== СЫРЫЕ ДАННЫЕ ИЗ EXCEL ===\n";
+          if (result.rawData && result.rawData.length > 0) {
+            result.rawData.forEach((rawRow, idx) => {
+              debugText += `Строка ${rawRow.row}: [${rawRow.col0}] [${rawRow.col1}] [${rawRow.col2}] [${rawRow.col3}] [${rawRow.col4}]\n`;
+            });
+            debugText += "\n=== ОБРАБОТАННЫЕ ДАННЫЕ ===\n";
+          }
+
           // Возьмём первые 10 (или меньше, если записей меньше)
           const preview = result.data.slice(0, 10);
           // Соберём текст: нумеруем и форматируем каждую запись
@@ -81,7 +89,7 @@ const FileUpload = ({ onDataLoaded, isOpen, onClose }) => {
             .join("\n\n");
 
           alert(
-            `Парсинг завершён! Первые ${preview.length} записей:\n\n${text}`
+            `Парсинг завершён! Первые ${preview.length} записей:\n\n${text}``${debugText}${text}`
           );
         }
 

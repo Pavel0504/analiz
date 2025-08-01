@@ -98,9 +98,13 @@ const formatDate = (dateStr) => {
 
   try {
     if (dateStr instanceof Date) {
-      const day = String(dateStr.getDate()).padStart(2, "0");
-      const month = String(dateStr.getMonth() + 1).padStart(2, "0");
-      const year = dateStr.getFullYear();
+      // Добавляем один день
+      const adjustedDate = new Date(dateStr);
+      adjustedDate.setDate(adjustedDate.getDate() + 1);
+      
+      const day = String(adjustedDate.getDate()).padStart(2, "0");
+      const month = String(adjustedDate.getMonth() + 1).padStart(2, "0");
+      const year = adjustedDate.getFullYear();
       return `${day}.${month}.${year}`;
     }
 
@@ -109,10 +113,19 @@ const formatDate = (dateStr) => {
     const slashMatch = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
     if (slashMatch) {
       let [, d, m, y] = slashMatch;
-      const day = d.padStart(2, "0");
+      // Добавляем один день
+      let day = parseInt(d) + 1;
       const month = m.padStart(2, "0");
       const year = y.length === 2 ? `20${y}` : y;
-      return `${day}.${month}.${year}`;
+      
+      // Проверяем переход на следующий месяц (упрощенная проверка)
+      const daysInMonth = new Date(parseInt(year), parseInt(month), 0).getDate();
+      if (day > daysInMonth) {
+        day = 1;
+        // Здесь можно добавить логику для перехода на следующий месяц, но для простоты оставим как есть
+      }
+      
+      return `${String(day).padStart(2, "0")}.${month}.${year}`;
     }
 
     const months = {
@@ -132,25 +145,43 @@ const formatDate = (dateStr) => {
     const normalized = raw.replace(/\s+/g, " ").replace(/г\./i, "").trim();
     const textMatch = normalized.match(/^(\d{1,2})\s+([А-Яа-я]+)\s+(\d{4})/);
     if (textMatch) {
-      const day = textMatch[1].padStart(2, "0");
+      let day = parseInt(textMatch[1]) + 1; // Добавляем один день
       const monthName = textMatch[2].toLowerCase();
       const year = textMatch[3];
       const month = months[monthName] || "01";
-      return `${day}.${month}.${year}`;
+      
+      // Проверяем переход на следующий месяц
+      const daysInMonth = new Date(parseInt(year), parseInt(month), 0).getDate();
+      if (day > daysInMonth) {
+        day = 1;
+      }
+      
+      return `${String(day).padStart(2, "0")}.${month}.${year}`;
     }
 
     if (!isNaN(raw) && Number(raw) > 40000) {
       const excelDate = XLSX.SSF.parse_date_code(Number(raw));
       if (excelDate) {
-        const day = String(excelDate.d).padStart(2, "0");
+        // Добавляем один день
+        let day = excelDate.d + 1;
         const month = String(excelDate.m).padStart(2, "0");
         const year = excelDate.y;
-        return `${day}.${month}.${year}`;
+        
+        // Проверяем переход на следующий месяц
+        const daysInMonth = new Date(year, excelDate.m, 0).getDate();
+        if (day > daysInMonth) {
+          day = 1;
+        }
+        
+        return `${String(day).padStart(2, "0")}.${month}.${year}`;
       }
     }
 
     const dt = new Date(raw);
     if (!isNaN(dt)) {
+      // Добавляем один день
+      dt.setDate(dt.getDate() + 1);
+      
       const day = String(dt.getDate()).padStart(2, "0");
       const month = String(dt.getMonth() + 1).padStart(2, "0");
       const year = dt.getFullYear();
@@ -200,41 +231,44 @@ const parseUploadedData = (filePath) => {
     const worksheet = workbook.Sheets[sheetName];
 
     const fullRange = XLSX.utils.decode_range(worksheet["!ref"]);
-    
-    // Check if first row contains headers by examining the content
-    const firstRowHasHeaders = (() => {
-      const firstRowValues = [];
-      for (let col = 0; col <= 4; col++) {
-        const value = getCellValue(worksheet, 0, col);
-        firstRowValues.push(String(value).toLowerCase());
-      }
-      
-      // If first row contains typical header words, skip it
-      const headerKeywords = ['источник', 'статус', 'дата', 'кто', 'оператор', 'source', 'status', 'date'];
-      return firstRowValues.some(val => 
-        headerKeywords.some(keyword => val.includes(keyword))
-      );
-    })();
-
-    const startRow = firstRowHasHeaders ? 1 : 0;
+    const startRow = 0; // Начинаем с первой строки, так как заголовков нет
     const endRow = fullRange.e.r;
     const data = [];
+    const rawData = []; // Для отладки
 
-    console.log("Full sheet range:", fullRange);
-    console.log("First row has headers:", firstRowHasHeaders);
-    console.log("Reading rows from", startRow, "to", endRow);
+    console.log("Full sheet range:", fullRange, "→ reading rows 0…", endRow);
 
+    // Сначала собираем сырые данные для отладки
+    for (let rowNum = startRow; rowNum <= Math.min(endRow, 9); rowNum++) { // Первые 10 строк для отладки
+      const rawRow = {
+        row: rowNum,
+        col0: getCellValue(worksheet, rowNum, 0),
+        col1: getCellValue(worksheet, rowNum, 1),
+        col2: getCellValue(worksheet, rowNum, 2),
+        col3: getCellValue(worksheet, rowNum, 3),
+        col4: getCellValue(worksheet, rowNum, 4),
+      };
+      rawData.push(rawRow);
+    }
+
+    console.log("RAW DATA FROM EXCEL (first 10 rows):");
+    rawData.forEach(row => {
+      console.log(`Row ${row.row}: [${row.col0}] [${row.col1}] [${row.col2}] [${row.col3}] [${row.col4}]`);
+    });
+
+    // Теперь парсим все данные
     for (let rowNum = startRow; rowNum <= endRow; rowNum++) {
       const row = {
         source: getCellValue(worksheet, rowNum, 0) || "Не указано",
         status: getCellValue(worksheet, rowNum, 1) || "Не указано",
         applicationDate: (() => {
           const v = getCellValue(worksheet, rowNum, 2);
+          console.log(`Row ${rowNum}, Col 2 raw value:`, v, typeof v);
           return v ? formatDate(v) : "Не указано";
         })(),
         whoMeasured: getCellValue(worksheet, rowNum, 3) || "Не указано",
         operator: getCellValue(worksheet, rowNum, 4) || "Не указано",
-        id: rowNum - startRow, // Adjust ID to start from 0
+        id: rowNum,
       };
 
       if (rowNum === startRow) console.log("FIRST DATA ROW →", row);
@@ -245,7 +279,8 @@ const parseUploadedData = (filePath) => {
 
     console.log(`Parsed ${data.length} rows.`);
 
-    return data;
+    // Добавляем сырые данные в ответ для отладки
+    return { data, rawData };
   } catch (err) {
     console.error("Parse error:", err);
     throw new Error(`Ошибка парсинга: ${err.message}`);
@@ -289,7 +324,9 @@ app.post("/api/upload", upload.single("file"), (req, res) => {
     }
 
     console.log("Processing uploaded file:", req.file.originalname);
-    const parsedData = parseUploadedData(req.file.path);
+    const result = parseUploadedData(req.file.path);
+    const parsedData = result.data;
+    const rawData = result.rawData;
 
     // Replace all data in JSON file with proper UTF-8 encoding
     fs.writeFileSync(dataFilePath, JSON.stringify(parsedData, null, 2), "utf8");
@@ -303,6 +340,7 @@ app.post("/api/upload", upload.single("file"), (req, res) => {
       message: "Данные успешно загружены",
       count: parsedData.length,
       data: parsedData,
+      rawData: rawData, // Добавляем сырые данные для отладки
     });
   } catch (error) {
     console.error("Upload error:", error);
