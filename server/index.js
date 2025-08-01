@@ -94,10 +94,20 @@ if (!fs.existsSync(expensesFilePath)) {
 }
 
 // Function to format date from Russian format to DD.MM.YYYY
+// Function to format date from various inputs to DD.MM.YYYY
 const formatDate = (dateStr) => {
   if (!dateStr || dateStr === "Не указано") return "Не указано";
 
   try {
+    // 0) Если это уже Date-объект (cellDates: true)
+    if (dateStr instanceof Date) {
+      // Берём UTC-день/месяц, чтобы избежать смещения
+      const day = String(dateStr.getUTCDate()).padStart(2, "0");
+      const month = String(dateStr.getUTCMonth() + 1).padStart(2, "0");
+      const year = dateStr.getUTCFullYear();
+      return `${day}.${month}.${year}`;
+    }
+
     const raw = String(dateStr).trim();
 
     // 1) Формат DD/MM/YY или D/M/YY (или с 4-значным годом)
@@ -106,7 +116,6 @@ const formatDate = (dateStr) => {
       let [, d, m, y] = slashMatch;
       const day = d.padStart(2, "0");
       const month = m.padStart(2, "0");
-      // если год из 2 цифр — делаем 20YY
       const year = y.length === 2 ? `20${y}` : y;
       return `${day}.${month}.${year}`;
     }
@@ -147,12 +156,12 @@ const formatDate = (dateStr) => {
       }
     }
 
-    // 4) Fallback — обычный JS-парсинг
+    // 4) Fallback — обычный JS-парсинг строкового представления
     const dt = new Date(raw);
     if (!isNaN(dt)) {
-      const day = String(dt.getDate()).padStart(2, "0");
-      const month = String(dt.getMonth() + 1).padStart(2, "0");
-      const year = dt.getFullYear();
+      const day = String(dt.getUTCDate()).padStart(2, "0");
+      const month = String(dt.getUTCMonth() + 1).padStart(2, "0");
+      const year = dt.getUTCFullYear();
       return `${day}.${month}.${year}`;
     }
 
@@ -188,12 +197,13 @@ const getCellValue = (worksheet, row, col) => {
 };
 
 // Function to parse Excel/CSV data with correct column mapping and encoding
+// Function to parse Excel/CSV data with correct column mapping and encoding
+// Function to parse Excel/CSV data with correct column mapping and encoding
 const parseUploadedData = (filePath) => {
   try {
-    // Read file with proper encoding options
     const workbook = XLSX.readFile(filePath, {
       type: "buffer",
-      codepage: 65001, // UTF-8
+      codepage: 65001,
       cellText: false,
       cellDates: true,
     });
@@ -201,67 +211,41 @@ const parseUploadedData = (filePath) => {
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
 
-    // Determine full range of the sheet
+    // Всегда стартуем с 0-й строки (Excel-строка 1)
+    // и до последней физически заполненной
     const fullRange = XLSX.utils.decode_range(worksheet["!ref"]);
-    const startRow = 0; // Всегда с физической первой строки
-    const endRow = fullRange.e.r; // До последней заполненной строки
+    const startRow = 0;
+    const endRow = fullRange.e.r;
     const data = [];
 
-    console.log("Processing Excel file with full range:", fullRange);
+    console.log("Full sheet range:", fullRange, "→ reading rows 0…", endRow);
 
-    // Проходим по всем строкам от 0 до endRow
     for (let rowNum = startRow; rowNum <= endRow; rowNum++) {
-      const row = {};
+      const row = {
+        source: getCellValue(worksheet, rowNum, 0) || "Не указано",
+        status: getCellValue(worksheet, rowNum, 1) || "Не указано",
+        applicationDate: (() => {
+          const v = getCellValue(worksheet, rowNum, 2);
+          return v ? formatDate(v) : "Не указано";
+        })(),
+        whoMeasured: getCellValue(worksheet, rowNum, 3) || "Не указано",
+        operator: getCellValue(worksheet, rowNum, 4) || "Не указано",
+        id: rowNum, // просто физический номер строки
+      };
 
-      // Column A - Источник (source) - index 0
-      const sourceValue = getCellValue(worksheet, rowNum, 0);
-      row.source = sourceValue || "Не указано";
+      // Лог первой и последней физической строки
+      if (rowNum === startRow) console.log("ROW 1 DATA →", row);
+      if (rowNum === endRow) console.log(`ROW ${endRow + 1} DATA →`, row);
 
-      // Column B - Статус (status) - index 1
-      const statusValue = getCellValue(worksheet, rowNum, 1);
-      row.status = statusValue || "Не указано";
-
-      // Column C - Дата заявки (applicationDate) - index 2
-      const appDateValue = getCellValue(worksheet, rowNum, 2);
-      row.applicationDate = appDateValue
-        ? formatDate(appDateValue)
-        : "Не указано";
-
-      // Column D - Кто замерял / Воронка продаж (whoMeasured) - index 3
-      const whoMeasuredValue = getCellValue(worksheet, rowNum, 3);
-      row.whoMeasured = whoMeasuredValue || "Не указано";
-
-      // Column E - Оператор (operator) - index 4
-      const operatorValue = getCellValue(worksheet, rowNum, 4);
-      row.operator = operatorValue || "Не указано";
-
-      // Add ID relative to the startRow
-      row.id = rowNum - startRow;
-
-      // Log raw first and last rows
-      if (rowNum === startRow) {
-        console.log("--- FIRST ROW RAW DATA ---", row);
-      }
-      if (rowNum === endRow) {
-        console.log("--- LAST ROW RAW DATA ---", row);
-      }
-
-      // Всегда добавляем строку, даже если все поля были пусты
       data.push(row);
     }
 
-    console.log(`Parsed ${data.length} rows successfully`);
-
-    // Log first and last entries after parsing
-    if (data.length > 0) {
-      console.log("=== FIRST ENTRY ===", data[0]);
-      console.log("=== LAST ENTRY ===", data[data.length - 1]);
-    }
+    console.log(`Parsed ${data.length} rows.`);
 
     return data;
-  } catch (error) {
-    console.error("Parse error:", error);
-    throw new Error(`Ошибка парсинга файла: ${error.message}`);
+  } catch (err) {
+    console.error("Parse error:", err);
+    throw new Error(`Ошибка парсинга: ${err.message}`);
   }
 };
 
