@@ -198,9 +198,6 @@ const FileUpload = ({ onDataLoaded, isOpen, onClose }) => {
             <p className="text-xs text-gray-500 mt-2">
               <strong>Формат дат:</strong> "4 Декабря 2024 г. 12:45" → будет преобразован в "04.12.2024"
             </p>
-            <p className="text-xs text-gray-500 mt-1">
-              <strong>Примечание:</strong> Строка 1 (заголовки) пропускается при обработке
-            </p>
           </div>
         </div>
       </div>
