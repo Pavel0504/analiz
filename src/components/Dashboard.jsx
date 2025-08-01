@@ -792,6 +792,54 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout }) => {
     }));
   };
 
+  // Date input formatting helper
+  const formatDateForInput = (dateStr) => {
+    if (!dateStr) return '';
+    // Convert DD.MM.YYYY to YYYY-MM-DD
+    const match = dateStr.match(/(\d{2})\.(\d{2})\.(\d{4})/);
+    if (match) {
+      const [, day, month, year] = match;
+      return `${year}-${month}-${day}`;
+    }
+    return dateStr;
+  };
+
+  const parseDateFromInput = (inputValue) => {
+    if (!inputValue) return '';
+    // Convert YYYY-MM-DD to DD.MM.YYYY
+    const match = inputValue.match(/(\d{4})-(\d{2})-(\d{2})/);
+    if (match) {
+      const [, year, month, day] = match;
+      return `${day}.${month}.${year}`;
+    }
+    return inputValue;
+  };
+
+  // Date input component
+  const DateInput = ({ value, onChange, placeholder, className = "" }) => {
+    const [inputValue, setInputValue] = useState(formatDateForInput(value));
+    
+    useEffect(() => {
+      setInputValue(formatDateForInput(value));
+    }, [value]);
+
+    const handleInputChange = (e) => {
+      const newValue = e.target.value;
+      setInputValue(newValue);
+      onChange(newValue);
+    };
+
+    return (
+      <input
+        type="date"
+        value={inputValue}
+        onChange={handleInputChange}
+        placeholder={placeholder}
+        className={`px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ${className}`}
+      />
+    );
+  };
+
   // Block wrapper component with arrow controls
   const LayoutBlock = ({ id, children, className = "" }) => {
     const currentIndex = tempLayoutOrder.indexOf(id);
@@ -1292,32 +1340,24 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout }) => {
               <div className="flex flex-col sm:flex-row flex-wrap gap-4 items-start sm:items-center">
                 <div className="flex items-center gap-2">
                   <label className="text-sm font-medium text-gray-600 dark:text-gray-400">С:</label>
-                  <input
-                    type="date"
+                  <DateInput
                     value={dateRange.startDate}
-                    onChange={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
+                    onChange={(value) => {
                       updateComparison(currentComparisonIndex, { 
-                        dateRange: { ...dateRange, startDate: e.target.value }
+                        dateRange: { ...dateRange, startDate: value }
                       });
                     }}
-                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                   />
                 </div>
                 <div className="flex items-center gap-2">
                   <label className="text-sm font-medium text-gray-600 dark:text-gray-400">По:</label>
-                  <input
-                    type="date"
+                  <DateInput
                     value={dateRange.endDate}
-                    onChange={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
+                    onChange={(value) => {
                       updateComparison(currentComparisonIndex, { 
-                        dateRange: { ...dateRange, endDate: e.target.value }
+                        dateRange: { ...dateRange, endDate: value }
                       });
                     }}
-                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                   />
                 </div>
                 <button
@@ -1334,10 +1374,12 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout }) => {
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
+                    const today = new Date();
+                    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
                     updateComparison(currentComparisonIndex, {
                       dateRange: {
-                        startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
-                        endDate: new Date().toISOString().split('T')[0]
+                        startDate: firstDayOfMonth.toISOString().split('T')[0],
+                        endDate: today.toISOString().split('T')[0]
                       }
                     });
                   }}

@@ -87,10 +87,6 @@ const FileUpload = ({ onDataLoaded, isOpen, onClose }) => {
               );
             })
             .join("\n\n");
-
-          alert(
-            `Парсинг завершён! Первые ${preview.length} записей:\n\n${text}``${debugText}${text}`
-          );
         }
 
         // Save upload history for backup page
