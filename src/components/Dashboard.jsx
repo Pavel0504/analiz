@@ -1534,8 +1534,6 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout }) => {
                     type="date"
                     value={dateRange.startDate}
                     onChange={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
                       updateComparison(currentComparisonIndex, {
                         dateRange: { ...dateRange, startDate: e.target.value },
                       });
@@ -1551,8 +1549,6 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout }) => {
                     type="date"
                     value={dateRange.endDate}
                     onChange={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
                       updateComparison(currentComparisonIndex, {
                         dateRange: { ...dateRange, endDate: e.target.value },
                       });
@@ -1580,10 +1576,15 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout }) => {
                       today.getMonth(),
                       1
                     );
+                    const lastOfMonth = new Date(
+                      today.getFullYear(),
+                      today.getMonth() + 1,
+                      0
+                    );
                     updateComparison(currentComparisonIndex, {
                       dateRange: {
                         startDate: firstOfMonth.toISOString().split("T")[0],
-                        endDate: today.toISOString().split("T")[0],
+                        endDate: lastOfMonth.toISOString().split("T")[0],
                       },
                     });
                   }}
