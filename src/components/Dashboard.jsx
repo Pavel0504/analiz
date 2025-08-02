@@ -800,8 +800,31 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout }) => {
     return getSourceData(filteredData);
   }, [getSourceData, filteredData]);
 
-  const getMetrics = useCallback((comparisonData, comparisonBudget) => {
-    const total = comparisonData.length;
+  // Функция для проверки типа выбранного периода
+  const checkDateRangeType = useCallback((selectedDateRange) => {
+    // Получаем полный диапазон данных
+    const fullDataRange = getDateRangeFromData();
+    
+    // Проверяем, выбран ли весь период
+    const isFullPeriod = selectedDateRange.startDate === fullDataRange.startDate && 
+                         selectedDateRange.endDate === fullDataRange.endDate;
+    
+    // Проверяем, выбран ли один день
+    const isSingleDay = selectedDateRange.startDate === selectedDateRange.endDate;
+    
+    return { isFullPeriod, isSingleDay };
+  }, [getDateRangeFromData]);
+
+  const getMetrics = useCallback((comparisonData, comparisonBudget, selectedDateRange) => {
+    let total = comparisonData.length;
+    
+    // Проверяем тип выбранного периода
+    const { isFullPeriod, isSingleDay } = checkDateRangeType(selectedDateRange);
+    
+    // Корректируем total для кастомных периодов (не весь период и не один день)
+    if (!isFullPeriod && !isSingleDay && total > 0) {
+      total = total - 1;
+    }
 
     const measurements = comparisonData.filter((item) => {
       if (!item.status) return false;
@@ -852,8 +875,11 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout }) => {
     const refusals = comparisonData.filter(
       (item) => item.status === "Отказ"
     ).length;
+    
+    // Используем исходное количество записей для расчета конверсии (не скорректированное)
+    const originalTotal = comparisonData.length;
     const conversionRate =
-      total > 0 ? ((contracts / total) * 100).toFixed(1) : 0;
+      originalTotal > 0 ? ((contracts / originalTotal) * 100).toFixed(1) : 0;
     const costPerLead = total > 0 ? (comparisonBudget / total).toFixed(0) : 0;
 
     let roi = 0;
@@ -883,11 +909,11 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout }) => {
       nedozvon,
       measurementInProgress,
     };
-  }, []);
+  }, [checkDateRangeType]);
 
   const metrics = useMemo(() => {
-    return getMetrics(filteredData, totalBudget);
-  }, [getMetrics, filteredData, totalBudget]);
+    return getMetrics(filteredData, totalBudget, dateRange);
+  }, [getMetrics, filteredData, totalBudget, dateRange]);
 
   // Custom Tooltip component for Pie Chart
   const CustomPieTooltip = ({ active, payload, label }) => {
@@ -1122,7 +1148,10 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout }) => {
       (sum, expense) => sum + expense.amount,
       0
     );
-    const comparisonMetrics = getMetrics(comparisonData, comparisonBudget);
+    const comparisonMetrics = getMetrics(comparisonData, comparisonBudget, comparison?.dateRange || {
+      startDate: "2024-01-01",
+      endDate: "2025-12-31",
+    });
 
     const metricConfigs = {
       total: {
