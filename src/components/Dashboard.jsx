@@ -161,6 +161,80 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout }) => {
     return `${year}-${month}-${day}`;
   };
 
+  // Helper function to calculate days between two dates
+  const calculateDaysBetween = (startDate, endDate) => {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const diffTime = Math.abs(end - start);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 to include both start and end dates
+    return diffDays;
+  };
+
+  // Helper function to calculate overlapping days between two date ranges
+  const calculateOverlapDays = (range1Start, range1End, range2Start, range2End) => {
+    const start1 = new Date(range1Start);
+    const end1 = new Date(range1End);
+    const start2 = new Date(range2Start);
+    const end2 = new Date(range2End);
+
+    // Find the overlap
+    const overlapStart = start1 > start2 ? start1 : start2;
+    const overlapEnd = end1 < end2 ? end1 : end2;
+
+    // If there's no overlap
+    if (overlapStart > overlapEnd) {
+      return 0;
+    }
+
+    // Calculate overlap days
+    const diffTime = Math.abs(overlapEnd - overlapStart);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 to include both start and end dates
+    return diffDays;
+  };
+
+  // Calculate proportional expenses for a given date range
+  const calculateProportionalExpenses = useCallback((expenses, analysisStartDate, analysisEndDate, sourceFilter = []) => {
+    let totalProportionalCost = 0;
+    const detailedBreakdown = [];
+
+    expenses.forEach((expense) => {
+      // Apply source filter if specified
+      if (sourceFilter.length > 0 && !sourceFilter.includes(expense.source)) {
+        return;
+      }
+
+      // Calculate total days in expense period
+      const expenseTotalDays = calculateDaysBetween(expense.startDate, expense.endDate);
+      const dailyCost = expense.amount / expenseTotalDays;
+
+      // Calculate overlapping days with analysis period
+      const overlapDays = calculateOverlapDays(
+        expense.startDate,
+        expense.endDate,
+        analysisStartDate,
+        analysisEndDate
+      );
+
+      if (overlapDays > 0) {
+        const proportionalCost = dailyCost * overlapDays;
+        totalProportionalCost += proportionalCost;
+
+        detailedBreakdown.push({
+          ...expense,
+          expenseTotalDays,
+          dailyCost,
+          overlapDays,
+          proportionalCost,
+        });
+      }
+    });
+
+    return {
+      totalCost: totalProportionalCost,
+      breakdown: detailedBreakdown,
+    };
+  }, []);
+
   // Update data when propData changes
   useEffect(() => {
     if (propData && propData.length > 0) {
@@ -638,32 +712,30 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout }) => {
     return getFilteredData(filters, dateRange);
   }, [getFilteredData, filters, dateRange]);
 
-  // Обновленная фильтрация расходов с учетом источников
+  // Updated filtered expenses calculation with proportional logic
   const filteredExpenses = useMemo(() => {
-    return expenses.filter((expense) => {
-      // Проверяем попадание в диапазон дат
-      const expenseStartDate = new Date(expense.startDate);
-      const expenseEndDate = new Date(expense.endDate);
-      const filterStartDate = new Date(dateRange.startDate);
-      const filterEndDate = new Date(dateRange.endDate);
-
-      // Проверяем пересечение периодов
-      const dateMatch =
-        expenseStartDate <= filterEndDate && expenseEndDate >= filterStartDate;
-
-      if (!dateMatch) return false;
-
-      // Проверяем фильтр по источникам
-      const sourceMatch =
-        !filters.sources.length || filters.sources.includes(expense.source);
-
-      return sourceMatch;
-    });
-  }, [expenses, dateRange, filters.sources]);
+    const expenseCalculation = calculateProportionalExpenses(
+      expenses,
+      dateRange.startDate,
+      dateRange.endDate,
+      filters.sources
+    );
+    
+    console.log("Proportional expenses calculation:", expenseCalculation);
+    
+    return expenseCalculation.breakdown;
+  }, [expenses, dateRange, filters.sources, calculateProportionalExpenses]);
 
   const totalBudget = useMemo(() => {
-    return filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0);
-  }, [filteredExpenses]);
+    const expenseCalculation = calculateProportionalExpenses(
+      expenses,
+      dateRange.startDate,
+      dateRange.endDate,
+      filters.sources
+    );
+    
+    return expenseCalculation.totalCost;
+  }, [expenses, dateRange, filters.sources, calculateProportionalExpenses]);
 
   const handleFilterChange = useCallback(
     (filterType, value, checked) => {
@@ -765,24 +837,53 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout }) => {
 
   const expensesTrendData = useMemo(() => {
     const monthlyExpenses = {};
-    filteredExpenses.forEach((expense) => {
-      const month = expense.startDate.substring(0, 7);
-      if (!monthlyExpenses[month]) {
-        monthlyExpenses[month] = {
-          month,
-          total: 0,
-          [expense.source]: 0,
-        };
+    
+    // Group expenses by month and calculate proportional costs
+    expenses.forEach((expense) => {
+      const expenseStartDate = new Date(expense.startDate);
+      const expenseEndDate = new Date(expense.endDate);
+      
+      // Find all months that this expense spans
+      let currentDate = new Date(expenseStartDate);
+      const totalExpenseDays = calculateDaysBetween(expense.startDate, expense.endDate);
+      const dailyCost = expense.amount / totalExpenseDays;
+      
+      while (currentDate <= expenseEndDate) {
+        const monthKey = currentDate.toISOString().substring(0, 7);
+        
+        // Calculate how many days of this month are covered by the expense
+        const monthStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+        const monthEnd = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+        
+        const overlapDays = calculateOverlapDays(
+          expense.startDate,
+          expense.endDate,
+          monthStart.toISOString().split('T')[0],
+          monthEnd.toISOString().split('T')[0]
+        );
+        
+        const monthlyExpenseCost = dailyCost * overlapDays;
+        
+        if (!monthlyExpenses[monthKey]) {
+          monthlyExpenses[monthKey] = {
+            month: monthKey,
+            total: 0,
+          };
+        }
+        
+        monthlyExpenses[monthKey].total += monthlyExpenseCost;
+        monthlyExpenses[monthKey][expense.source] = 
+          (monthlyExpenses[monthKey][expense.source] || 0) + monthlyExpenseCost;
+        
+        // Move to next month
+        currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
       }
-      monthlyExpenses[month].total += expense.amount;
-      monthlyExpenses[month][expense.source] =
-        (monthlyExpenses[month][expense.source] || 0) + expense.amount;
     });
 
     return Object.values(monthlyExpenses).sort((a, b) =>
       a.month.localeCompare(b.month)
     );
-  }, [filteredExpenses]);
+  }, [expenses]);
 
   const getSourceData = useCallback((comparisonData) => {
     const sourceStats = {};
@@ -1144,10 +1245,15 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout }) => {
         endDate: "2025-12-31",
       }
     );
-    const comparisonBudget = filteredExpenses.reduce(
-      (sum, expense) => sum + expense.amount,
-      0
+    
+    const comparisonExpenseCalc = calculateProportionalExpenses(
+      expenses,
+      comparison?.dateRange?.startDate || "2024-01-01",
+      comparison?.dateRange?.endDate || "2025-12-31",
+      comparison?.filters?.sources || []
     );
+    const comparisonBudget = comparisonExpenseCalc.totalCost;
+    
     const comparisonMetrics = getMetrics(comparisonData, comparisonBudget, comparison?.dateRange || {
       startDate: "2024-01-01",
       endDate: "2025-12-31",
@@ -1161,7 +1267,7 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout }) => {
         textColor: "text-blue-100",
         expandedInfo: {
           costPerLead: `${comparisonMetrics.costPerLead}₽`,
-          totalBudget: `${comparisonBudget.toLocaleString()}₽`,
+          totalBudget: `${Math.round(comparisonBudget).toLocaleString()}₽`,
           conversion:
             comparisonMetrics.total > 0
               ? `${(
@@ -1183,7 +1289,7 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout }) => {
                   comparisonBudget / comparisonMetrics.measurements
                 )}₽`
               : "0₽",
-          totalBudget: `${comparisonBudget.toLocaleString()}₽`,
+          totalBudget: `${Math.round(comparisonBudget).toLocaleString()}₽`,
           conversion:
             comparisonMetrics.total > 0
               ? `${(
@@ -1203,7 +1309,7 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout }) => {
             comparisonMetrics.contracts > 0
               ? `${Math.round(comparisonBudget / comparisonMetrics.contracts)}₽`
               : "0₽",
-          totalBudget: `${comparisonBudget.toLocaleString()}₽`,
+          totalBudget: `${Math.round(comparisonBudget).toLocaleString()}₽`,
           conversion:
             comparisonMetrics.measurements > 0
               ? `${(
@@ -1662,15 +1768,15 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout }) => {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow">
                   <div className="text-sm text-gray-600 dark:text-gray-400">
-                    Общие расходы
+                    Пропорциональные расходы
                   </div>
                   <div className="text-xl sm:text-2xl font-bold text-orange-700 dark:text-orange-400">
-                    {totalBudget.toLocaleString()}₽
+                    {Math.round(totalBudget).toLocaleString()}₽
                   </div>
                 </div>
                 <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow">
                   <div className="text-sm text-gray-600 dark:text-gray-400">
-                    Количество записей
+                    Активных расходов
                   </div>
                   <div className="text-xl sm:text-2xl font-bold text-orange-700 dark:text-orange-400">
                     {filteredExpenses.length}
@@ -1678,13 +1784,10 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout }) => {
                 </div>
                 <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow">
                   <div className="text-sm text-gray-600 dark:text-gray-400">
-                    Средний расход
+                    Дней в анализе
                   </div>
                   <div className="text-xl sm:text-2xl font-bold text-orange-700 dark:text-orange-400">
-                    {filteredExpenses.length > 0
-                      ? (totalBudget / filteredExpenses.length).toFixed(0)
-                      : 0}
-                    ₽
+                    {calculateDaysBetween(dateRange.startDate, dateRange.endDate)}
                   </div>
                 </div>
               </div>
@@ -1795,7 +1898,12 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout }) => {
                                         comparison.filters,
                                         comparison.dateRange
                                       ),
-                                      totalBudget
+                                      calculateProportionalExpenses(
+                                        expenses,
+                                        comparison.dateRange.startDate,
+                                        comparison.dateRange.endDate,
+                                        comparison.filters.sources
+                                      ).totalCost
                                     )}
                                     isAnimationActive
                                     animationDuration={1000}
@@ -1805,7 +1913,12 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout }) => {
                                         comparison.filters,
                                         comparison.dateRange
                                       ),
-                                      totalBudget
+                                      calculateProportionalExpenses(
+                                        expenses,
+                                        comparison.dateRange.startDate,
+                                        comparison.dateRange.endDate,
+                                        comparison.filters.sources
+                                      ).totalCost
                                     ).map((entry, entryIndex) => (
                                       <Cell
                                         key={`cell-${entryIndex}`}
@@ -1824,7 +1937,12 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout }) => {
                                     comparison.filters,
                                     comparison.dateRange
                                   ),
-                                  totalBudget
+                                  calculateProportionalExpenses(
+                                    expenses,
+                                    comparison.dateRange.startDate,
+                                    comparison.dateRange.endDate,
+                                    comparison.filters.sources
+                                  ).totalCost
                                 ).map((stage, stageIndex) => (
                                   <div
                                     key={stageIndex}
@@ -2160,7 +2278,7 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout }) => {
           >
             <h2 className="text-lg sm:text-xl font-bold mb-4 text-gray-800 dark:text-gray-200 flex items-center gap-2">
               <div className="w-2 h-6 bg-orange-500 rounded"></div>
-              Динамика расходов
+              Динамика расходов (пропорциональная)
             </h2>
             <ResponsiveContainer width="100%" height={400}>
               <AreaChart data={expensesTrendData}>
@@ -2180,7 +2298,7 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout }) => {
                 <XAxis dataKey="month" stroke="#666" />
                 <YAxis stroke="#666" />
                 <Tooltip
-                  formatter={(value) => [`${value.toLocaleString()}₽`, "Сумма"]}
+                  formatter={(value) => [`${Math.round(value).toLocaleString()}₽`, "Сумма"]}
                   contentStyle={{
                     backgroundColor: "rgba(255, 255, 255, 0.95)",
                     border: "none",
@@ -2195,7 +2313,7 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout }) => {
                   stroke="#3B82F6"
                   fillOpacity={1}
                   fill="url(#totalGradient)"
-                  name="Общие расходы"
+                  name="Пропорциональные расходы"
                   strokeWidth={2}
                   isAnimationActive
                   animationDuration={1500}
@@ -2214,7 +2332,7 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout }) => {
           >
             <h2 className="text-lg sm:text-xl font-bold mb-4 text-gray-800 dark:text-gray-200 flex items-center gap-2">
               <div className="w-2 h-6 bg-indigo-500 rounded"></div>
-              Детализация расходов
+              Детализация расходов (пропорциональная)
             </h2>
             <div className="max-h-96 overflow-y-auto">
               {filteredExpenses.length === 0 ? (
@@ -2251,11 +2369,20 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout }) => {
                             "ru-RU"
                           )}
                         </div>
+                        <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                          Пропорциональная стоимость: {Math.round(expense.proportionalCost).toLocaleString()}₽ 
+                          ({expense.overlapDays} из {expense.expenseTotalDays} дней)
+                        </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="font-bold text-lg text-gray-800 dark:text-gray-200">
-                          {expense.amount.toLocaleString()}₽
-                        </span>
+                        <div className="text-right">
+                          <span className="font-bold text-lg text-gray-800 dark:text-gray-200">
+                            {Math.round(expense.proportionalCost).toLocaleString()}₽
+                          </span>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            из {expense.amount.toLocaleString()}₽
+                          </div>
+                        </div>
                         <div className="flex gap-1">
                           <button
                             onClick={(e) => {
@@ -2400,6 +2527,19 @@ const Dashboard = ({ data: propData, onShowUpload, onLogout }) => {
                     placeholder="Описание расхода"
                   />
                 </div>
+
+                {/* Preview calculation */}
+                {expenseForm.startDate && expenseForm.endDate && expenseForm.amount && (
+                  <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
+                    <div className="text-sm text-gray-600 dark:text-gray-400">
+                      Предпросмотр:
+                    </div>
+                    <div className="text-sm">
+                      <div>Период: {calculateDaysBetween(expenseForm.startDate, expenseForm.endDate)} дней</div>
+                      <div>Стоимость за день: {(parseFloat(expenseForm.amount || 0) / calculateDaysBetween(expenseForm.startDate, expenseForm.endDate)).toFixed(2)}₽</div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="flex gap-3 mt-6">
