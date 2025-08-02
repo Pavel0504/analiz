@@ -3,4 +3,4 @@
 /*    /index.html   200
 
 # API proxy rules (optional - if you want to proxy through Netlify)
-# /api/*  https://e949f85a51e4.ngrok-free.app/api/:splat  200
+# /api/*  https://9cdc60457af6.ngrok-free.app/api/:splat  200
